@@ -42,9 +42,10 @@ export default function Login() {
     setSubmitting(false)
 
     if (error) {
-      setErrorMessage('E-mail ou senha inválidos. Verifique e tente novamente.')
-      return
-    }
+  console.error('Erro do Supabase:', error)
+  setErrorMessage(error.message)
+  return
+}
   }
 
   return (

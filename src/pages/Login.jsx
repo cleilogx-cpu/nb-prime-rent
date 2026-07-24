@@ -43,7 +43,7 @@ export default function Login() {
 
     if (error) {
   console.error('Erro do Supabase:', error)
-  setErrorMessage(error.message)
+  setErrorMessage(`${error.message} — código: ${error.code || 'sem código'}`)
   return
 }
   }

@@ -75,22 +75,24 @@ export default function VehicleCard({ vehicle, onEdit, onDelete }) {
           <strong>Próximo destino:</strong> {vehicle.next_destination || 'Não informado'}
         </span>
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => onEdit(vehicle)}
-            className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 transition hover:border-amber-300/30 hover:bg-amber-300/10"
-          >
-            <PencilLine size={16} />
-            Editar
-          </button>
-          <button
-            type="button"
-            onClick={() => onDelete(vehicle)}
-            className="inline-flex items-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-sm font-semibold text-amber-200 transition hover:bg-amber-300/20"
-            <Trash2 size={16} />
-            Excluir
-          </button>
-        </div>
+  <button
+    type="button"
+    onClick={() => onEdit(vehicle)}
+    className="inline-flex items-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-sm font-semibold text-amber-200 transition hover:bg-amber-300/20"
+  >
+    <PencilLine size={16} />
+    Editar
+  </button>
+
+  <button
+    type="button"
+    onClick={() => onDelete(vehicle)}
+    className="inline-flex items-center gap-2 rounded-2xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-200 transition hover:border-rose-400 hover:bg-rose-500/20"
+  >
+    <Trash2 size={16} />
+    Excluir
+  </button>
+</div>
       </div>
     </article>
   )

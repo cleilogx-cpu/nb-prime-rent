@@ -74,7 +74,7 @@ export default function Vehicles() {
     setSubmitting(true)
 
     const action = editingVehicle ? updateVehicle(editingVehicle.id, payload) : createVehicle(payload)
-    const { data, error: submitError } = await action
+    const { error: submitError } = await action
 
     if (submitError) {
       setToast({ message: submitError.message || 'Não foi possível salvar o veículo.', type: 'error' })

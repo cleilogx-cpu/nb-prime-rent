@@ -31,13 +31,23 @@ export default function VehicleCard({ vehicle, onEdit, onDelete }) {
     <article className="rounded-[28px] border border-white/10 bg-slate-950/80 p-5 shadow-lg shadow-black/20">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.35em] text-slate-500">{vehicle.model || 'Modelo não informado'}</p>
-          <h3 className="mt-2 text-2xl font-semibold text-white">{vehicle.plate || 'Placa não informada'}</h3>
-          <p className="mt-1 text-sm text-slate-400">{vehicle.color || 'Cor não informada'}</p>
-        </div>
-        <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">
-          {vehicle.status || 'Sem status'}
-        </span>
+  <h3 className="flex items-center gap-2 text-2xl font-semibold text-white">
+    🚗 {vehicle.model || 'Modelo não informado'}
+  </h3>
+
+  <p className="mt-3 text-xl font-bold tracking-wider text-amber-300">
+    {vehicle.plate || 'Placa não informada'}
+  </p>
+
+  <p className="mt-1 text-sm text-slate-400">
+    {vehicle.color || 'Cor não informada'}
+  </p>
+</div>
+        <span
+  className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] ${getStatusStyle(vehicle.status)}`}
+>
+  {vehicle.status || 'Sem status'}
+</span>
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-2">
@@ -76,8 +86,7 @@ export default function VehicleCard({ vehicle, onEdit, onDelete }) {
           <button
             type="button"
             onClick={() => onDelete(vehicle)}
-            className="inline-flex items-center gap-2 rounded-2xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-200 transition hover:border-rose-400 hover:bg-rose-500/20"
-          >
+            className="inline-flex items-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-sm font-semibold text-amber-200 transition hover:bg-amber-300/20"
             <Trash2 size={16} />
             Excluir
           </button>

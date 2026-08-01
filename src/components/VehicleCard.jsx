@@ -26,6 +26,24 @@ function formatDate(value) {
   return date.toLocaleDateString('pt-BR')
 }
 
+function getStatusStyle(status) {
+  const normalizedStatus = String(status ?? '').toLowerCase()
+
+  if (normalizedStatus === 'alugado' || normalizedStatus === 'rented') {
+    return 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300'
+  }
+
+  if (normalizedStatus === 'disponível' || normalizedStatus === 'available') {
+    return 'border-sky-400/20 bg-sky-500/10 text-sky-300'
+  }
+
+  if (normalizedStatus === 'manutenção' || normalizedStatus === 'maintenance') {
+    return 'border-rose-400/20 bg-rose-500/10 text-rose-300'
+  }
+
+  return 'border-amber-300/20 bg-amber-300/10 text-amber-300'
+}
+
 export default function VehicleCard({ vehicle, onEdit, onDelete }) {
   return (
     <article className="rounded-[28px] border border-white/10 bg-slate-950/80 p-5 shadow-lg shadow-black/20">

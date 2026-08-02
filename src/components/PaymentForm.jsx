@@ -1,6 +1,10 @@
 import { useState } from 'react'
-import { createPaymentWithDestinationRules, updatePayment, updateVehicleNextDestination } from '../services/paymentsService.js'
-import { calculateNextPartnerBeneficiaryForVehicle, getLastConfirmedPartnerBeneficiary } from '../services/paymentsService.js'
+import {
+  createPaymentWithDestinationRules,
+  updatePayment,
+  calculateNextPartnerBeneficiaryForVehicle,
+  getLastConfirmedPartnerBeneficiary,
+} from '../services/paymentsService.js'
 
 export default function PaymentForm({ open, onClose, locations, vehicles, payment, onSaved, userId }) {
   const [form, setForm] = useState({
@@ -8,6 +12,7 @@ export default function PaymentForm({ open, onClose, locations, vehicles, paymen
     vehicle_id: payment?.vehicle_id || '',
     payment_date: payment?.payment_date || '',
     amount: payment?.amount || '',
+    receipt_type: payment?.receipt_type || payment?.type || 'rent',
     payment_method: payment?.payment_method || 'PIX',
     finance_model: payment?.finance_model || 'partners',
     destination: payment?.destination || '',
@@ -62,6 +67,7 @@ export default function PaymentForm({ open, onClose, locations, vehicles, paymen
       destination: form.destination,
       payment_date: form.payment_date || new Date().toISOString().slice(0, 10),
       amount: form.amount,
+      receipt_type: form.receipt_type,
       payment_method: form.payment_method,
       status: form.status,
       notes: form.notes,
@@ -72,15 +78,12 @@ export default function PaymentForm({ open, onClose, locations, vehicles, paymen
     const { data, error } = await action
 
     if (error) {
-      setMessage(error.message || 'Não foi possível salvar o recebimento.')
-    } else {
-      if (form.finance_model === 'partners' && form.destination) {
-        await updateVehicleNextDestination(form.vehicle_id, form.destination)
-      }
-      setMessage('Recebimento salvo com sucesso.')
-      onSaved?.(data)
-      onClose()
-    }
+  setMessage(error.message || 'Não foi possível salvar o recebimento.')
+} else {
+  setMessage('Recebimento salvo com sucesso.')
+  onSaved?.(data)
+  onClose()
+}
 
     setLoading(false)
   }
@@ -117,33 +120,87 @@ export default function PaymentForm({ open, onClose, locations, vehicles, paymen
             <input value={selectedLocation?.tenant_name || ''} readOnly className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" />
           </label>
 
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-slate-300">Data recebida</span>
-            <input type="date" value={form.payment_date} onChange={(event) => setForm((current) => ({ ...current, payment_date: event.target.value }))} className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" required />
-          </label>
+<label className="space-y-2">
+  <span className="text-sm font-medium text-slate-300">
+    Data recebida
+  </span>
 
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-slate-300">Valor</span>
-            <input type="number" min="0" step="0.01" value={form.amount} onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" required />
-          </label>
+  <input
+    type="date"
+    value={form.payment_date}
+    onChange={(event) =>
+      setForm((current) => ({
+        ...current,
+        payment_date: event.target.value,
+      }))
+    }
+    className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none"
+    required
+  />
+</label>
 
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-slate-300">Forma de pagamento</span>
-            <select value={form.payment_method} onChange={(event) => setForm((current) => ({ ...current, payment_method: event.target.value }))} className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none">
-              <option value="PIX">PIX</option>
-              <option value="Dinheiro">Dinheiro</option>
-              <option value="Transferência">Transferência</option>
-              <option value="Cartão">Cartão</option>
-            </select>
-          </label>
+<label className="space-y-2">
+  <span className="text-sm font-medium text-slate-300">
+    Valor
+  </span>
 
-          <label className="space-y-2 md:col-span-2">
-            <span className="text-sm font-medium text-slate-300">Modelo financeiro</span>
-            <select value={form.finance_model} onChange={(event) => setForm((current) => ({ ...current, finance_model: event.target.value, destination: event.target.value === 'savings' ? 'Fundo do veículo' : current.destination }))} className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none">
-              <option value="partners">Alternância entre sócios</option>
-              <option value="savings">Fundo do veículo</option>
-            </select>
-          </label>
+  <input
+    type="number"
+    min="0"
+    step="0.01"
+    value={form.amount}
+    onChange={(event) =>
+      setForm((current) => ({
+        ...current,
+        amount: event.target.value,
+      }))
+    }
+    className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none"
+    required
+  />
+</label>
+
+<label className="space-y-2">
+  <span className="text-sm font-medium text-slate-300">
+    Tipo de recebimento
+  </span>
+  <select
+    value={form.receipt_type}
+    onChange={(event) =>
+      setForm((current) => ({
+        ...current,
+        receipt_type: event.target.value,
+      }))
+    }
+    className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none"
+  >
+    <option value="rent">Aluguel</option>
+    <option value="deposit">Caução</option>
+    <option value="transport">Transporte</option>
+    <option value="other">Outro</option>
+  </select>
+</label>
+
+<label className="space-y-2">
+  <span className="text-sm font-medium text-slate-300">
+    Forma de pagamento
+  </span>
+  <select
+    value={form.payment_method}
+    onChange={(event) =>
+      setForm((current) => ({
+        ...current,
+        payment_method: event.target.value,
+      }))
+    }
+    className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none"
+  >
+    <option value="PIX">PIX</option>
+    <option value="Dinheiro">Dinheiro</option>
+    <option value="Transferência">Transferência</option>
+    <option value="Cartão">Cartão</option>
+  </select>
+</label>
 
           <label className="space-y-2 md:col-span-2">
             <span className="text-sm font-medium text-slate-300">Destino</span>

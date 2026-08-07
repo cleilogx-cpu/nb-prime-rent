@@ -10,7 +10,8 @@ export default function PaymentForm({ open, onClose, locations, vehicles, paymen
   const [form, setForm] = useState({
     location_id: payment?.location_id || '',
     vehicle_id: payment?.vehicle_id || '',
-    payment_date: payment?.payment_date || '',
+    payment_date:
+  payment?.payment_date || new Date().toISOString().slice(0, 10),
     amount: payment?.amount || '',
     receipt_type: payment?.receipt_type || payment?.type || 'rent',
     payment_method: payment?.payment_method || 'PIX',
@@ -37,8 +38,15 @@ export default function PaymentForm({ open, onClose, locations, vehicles, paymen
     }
 
     const nextVehicle = vehicles.find((vehicle) => vehicle.id === location.vehicle_id) || null
-    const { data: lastBeneficiary } = await getLastConfirmedPartnerBeneficiary(location.vehicle_id)
-    const { data: proposedBeneficiary } = await calculateNextPartnerBeneficiaryForVehicle(location.vehicle_id, nextVehicle?.next_destination)
+    const { data: lastBeneficiary } =
+  await getLastConfirmedPartnerBeneficiary(location.vehicle_id)
+
+const proposedBeneficiary =
+  lastBeneficiary === 'Clei'
+    ? 'Edson'
+    : lastBeneficiary === 'Edson'
+      ? 'Clei'
+      : (nextVehicle?.next_destination || 'Clei')
 
     setForm((current) => ({
       ...current,
@@ -47,7 +55,7 @@ export default function PaymentForm({ open, onClose, locations, vehicles, paymen
       finance_model: nextVehicle?.finance_model || 'partners',
       destination: nextVehicle?.finance_model === 'savings' ? 'Fundo do veículo' : (proposedBeneficiary || ''),
       amount: location.weekly_rent || current.amount,
-      notes: current.notes || `Locação: ${location.id}`,
+      notes: `${location.vehicle_plate} - ${location.tenant_name}`,
     }))
   }
 

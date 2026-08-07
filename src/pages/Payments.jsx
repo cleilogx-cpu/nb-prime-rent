@@ -33,9 +33,17 @@ export default function Payments() {
     setLoading(true)
     const [{ data: paymentsData, error: paymentsError }, { data: locationsData }, { data: vehiclesData }] = await Promise.all([
       listPayments(),
-      supabase.from('locations').select('*').order('created_at', { ascending: false }),
+
+      supabase
+  .from('locations')
+  .select('*')
+  .order('created_at', { ascending: false }),
+
       supabase.from('vehicles').select('*').order('created_at', { ascending: false }),
     ])
+    
+    console.log('LOCATIONS:', locationsData)
+    console.log('VEHICLES:', vehiclesData)
 
     if (paymentsError) {
       setToast({ message: paymentsError.message || 'Falha ao carregar recebimentos.', type: 'error' })
@@ -47,9 +55,10 @@ export default function Payments() {
     setLoading(false)
   }
 
-  useEffect(() => {
-    loadData()
-  }, [])
+ useEffect(() => {
+  console.log('CARREGANDO DADOS...')
+  loadData()
+}, [])
 
   const filteredPayments = useMemo(() => {
     return payments.filter((payment) => {
@@ -108,9 +117,35 @@ export default function Payments() {
     setSelectedPayment(null)
   }
 
-  const paidTotal = payments.filter((payment) => payment.status === 'Pago').reduce((acc, payment) => acc + Number(payment.amount ?? 0), 0)
-  const cancelledTotal = payments.filter((payment) => payment.status === 'Cancelado').reduce((acc, payment) => acc + Number(payment.amount ?? 0), 0)
+const paidTotal = payments
+  .filter((payment) => payment.status === 'Pago')
+  .reduce((acc, payment) => acc + Number(payment.amount ?? 0), 0)
 
+const cancelledTotal = payments
+  .filter((payment) => payment.status === 'Cancelado')
+  .reduce((acc, payment) => acc + Number(payment.amount ?? 0), 0)
+
+const cleiTotal = payments
+  .filter(
+    (payment) =>
+      payment.status === 'Pago' &&
+      String(payment.destination ?? '').toLowerCase() === 'clei'
+  )
+  .reduce((acc, payment) => acc + Number(payment.amount ?? 0), 0)
+  const edsonTotal = payments
+  .filter(
+    (payment) =>
+      payment.status === 'Pago' &&
+      String(payment.destination ?? '').toLowerCase() === 'edson'
+  )
+  .reduce((acc, payment) => acc + Number(payment.amount ?? 0), 0)
+  const fundsTotal = payments
+  .filter(
+    (payment) =>
+      payment.status === 'Pago' &&
+      String(payment.destination ?? '').toLowerCase() === 'fundo do veículo'
+  )
+  .reduce((acc, payment) => acc + Number(payment.amount ?? 0), 0)
   return (
     <div className="space-y-8">
       <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
@@ -136,13 +171,27 @@ export default function Payments() {
             <p className="text-sm uppercase tracking-[0.35em] text-slate-500">Total cancelado</p>
             <p className="mt-5 text-3xl font-semibold text-white">R$ {cancelledTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
           </div>
-          <div className="rounded-[24px] border border-white/10 bg-slate-950/70 p-5">
-            <p className="text-sm uppercase tracking-[0.35em] text-slate-500">Clei</p>
-            <p className="mt-5 text-3xl font-semibold text-white">R$ 0,00</p>
-          </div>
+         <div className="rounded-[24px] border border-white/10 bg-slate-950/70 p-5">
+  <p className="text-sm uppercase tracking-[0.35em] text-slate-500">
+    Clei
+  </p>
+  <p className="mt-5 text-3xl font-semibold text-white">
+    R$ {cleiTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+  </p>
+</div>
+<div className="rounded-[24px] border border-white/10 bg-slate-950/70 p-5">
+  <p className="text-sm uppercase tracking-[0.35em] text-slate-500">
+    Edson
+  </p>
+  <p className="mt-5 text-3xl font-semibold text-white">
+    R$ {edsonTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+  </p>
+</div>
           <div className="rounded-[24px] border border-white/10 bg-slate-950/70 p-5">
             <p className="text-sm uppercase tracking-[0.35em] text-slate-500">Fundos</p>
-            <p className="mt-5 text-3xl font-semibold text-white">R$ 0,00</p>
+            <p className="mt-5 text-3xl font-semibold text-white">
+  R$ {fundsTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+</p>
           </div>
         </div>
       </section>
@@ -179,3 +228,4 @@ export default function Payments() {
     </div>
   )
 }
+

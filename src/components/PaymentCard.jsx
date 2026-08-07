@@ -15,6 +15,21 @@ function formatCurrency(value) {
   }).format(numericValue)
 }
 
+function getVehiclePlate(payment, metadata) {
+  if (payment.vehicle_plate) {
+    return payment.vehicle_plate
+  }
+
+  if (metadata.locationVehicle) {
+    return metadata.locationVehicle
+  }
+
+  const observation = metadata.note || payment.notes || ''
+  const plate = observation.split(' - ')[0]?.trim()
+
+  return plate || 'Veículo não informado'
+}
+
 function formatDate(value) {
   if (!value) {
     return 'Não informado'
@@ -42,7 +57,9 @@ export default function PaymentCard({ payment, onView, onCancel }) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.35em] text-amber-300/80">{payment.payment_date ? formatDate(payment.payment_date) : 'Data indisponível'}</p>
-          <h3 className="mt-3 text-xl font-semibold text-white">{payment.vehicle_id || 'Veículo'}</h3>
+         <h3 className="mt-3 text-xl font-semibold text-white">
+  {getVehiclePlate(payment, metadata)}
+</h3>
         </div>
         <PaymentStatusBadge status={payment.status} />
       </div>

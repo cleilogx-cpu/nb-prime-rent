@@ -154,12 +154,25 @@ export default function Expenses() {
 
             <p>
               <span className="text-slate-500">Categoria:</span>{' '}
-              {expense.category || 'Não informada'}
+              {{
+  maintenance: 'Manutenção',
+  cleaning: 'Limpeza',
+  accessories: 'Acessórios',
+  documentation: 'Documentação',
+  insurance: 'Seguro',
+  fine: 'Multa',
+  transport: 'Transporte',
+  other: 'Outros',
+}[expense.category] || 'Não informada'}
             </p>
 
             <p>
               <span className="text-slate-500">Origem:</span>{' '}
-              {expense.source || 'Não informada'}
+              {{
+  vehicle_fund: 'Fundo do veículo',
+  clei: 'Clei',
+  edson: 'Edson',
+}[expense.source] || 'Não informada'}
             </p>
           </div>
         </div>

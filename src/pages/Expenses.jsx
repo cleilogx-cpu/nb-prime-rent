@@ -116,7 +116,57 @@ export default function Expenses() {
           Nenhuma despesa cadastrada.
         </div>
       ) : null}
+{!loading && expenses.length > 0 ? (
+  <div className="grid gap-4 md:grid-cols-2">
+    {expenses.map((expense) => {
+      const vehicle = vehicles.find((item) => item.id === expense.vehicle_id)
 
+      return (
+        <div
+          key={expense.id}
+          className="rounded-[28px] border border-white/10 bg-slate-900/70 p-6 shadow-lg shadow-black/20"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm uppercase tracking-[0.25em] text-amber-300/80">
+                {vehicle?.plate || 'Veículo não informado'}
+              </p>
+
+              <h3 className="mt-2 text-xl font-semibold text-white">
+                {expense.description || 'Despesa sem descrição'}
+              </h3>
+            </div>
+
+            <p className="text-lg font-semibold text-white">
+              R$ {Number(expense.amount || 0).toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+              })}
+            </p>
+          </div>
+
+          <div className="mt-5 space-y-2 text-sm text-slate-400">
+            <p>
+              <span className="text-slate-500">Data:</span>{' '}
+              {expense.expense_date
+                ? new Date(`${expense.expense_date}T12:00:00`).toLocaleDateString('pt-BR')
+                : 'Não informada'}
+            </p>
+
+            <p>
+              <span className="text-slate-500">Categoria:</span>{' '}
+              {expense.category || 'Não informada'}
+            </p>
+
+            <p>
+              <span className="text-slate-500">Origem:</span>{' '}
+              {expense.source || 'Não informada'}
+            </p>
+          </div>
+        </div>
+      )
+    })}
+  </div>
+) : null}
       {showForm ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-xl rounded-[28px] border border-white/10 bg-slate-950 p-6 shadow-2xl">

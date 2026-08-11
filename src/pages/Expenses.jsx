@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { PlusCircle } from 'lucide-react'
-import { listExpenses } from '../services/expensesService.js'
+import { createExpense, listExpenses } from '../services/expensesService.js'
 import { listVehicles } from '../services/vehiclesService.js'
 
 export default function Expenses() {
@@ -8,6 +8,14 @@ export default function Expenses() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [vehicles, setVehicles] = useState([])
+  const [form, setForm] = useState({
+  vehicle_id: '',
+  expense_date: new Date().toISOString().slice(0, 10),
+  category: '',
+  amount: '',
+  description: '',
+  payment_source: '',
+})
 
   const loadExpenses = async () => {
     setLoading(true)
@@ -41,6 +49,37 @@ export default function Expenses() {
     loadVehicles()
   }, [])
 
+  const handleSubmit = async (event) => {
+  event.preventDefault()
+
+  const payload = {
+    vehicle_id: form.vehicle_id,
+    expense_date: form.expense_date,
+    category: form.category,
+    amount: form.amount,
+    description: form.description,
+    source: form.payment_source,
+  }
+
+  const { error } = await createExpense(payload)
+
+  if (error) {
+    console.error('Erro ao salvar despesa:', error)
+    return
+  }
+
+  setForm({
+    vehicle_id: '',
+    expense_date: new Date().toISOString().slice(0, 10),
+    category: '',
+    amount: '',
+    description: '',
+    payment_source: '',
+  })
+
+  setShowForm(false)
+  await loadExpenses()
+}
   return (
     <div className="space-y-8">
       <section className="rounded-[32px] border border-white/10 bg-slate-900/80 p-6 shadow-xl shadow-black/30 sm:p-8">
@@ -100,6 +139,7 @@ export default function Expenses() {
                 Fechar
               </button>
             </div>
+            <form onSubmit={handleSubmit}>
 
             <div className="mt-6 space-y-4">
               <label className="block space-y-2">
@@ -107,7 +147,16 @@ export default function Expenses() {
                   Veículo
                 </span>
 
-                <select className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none">
+   <select
+  value={form.vehicle_id}
+  onChange={(event) =>
+    setForm((current) => ({
+      ...current,
+      vehicle_id: event.target.value,
+    }))
+  }
+  className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none"
+>
                   <option value="">Selecione um veículo</option>
 
                   {vehicles.map((vehicle) => (
@@ -125,7 +174,13 @@ export default function Expenses() {
 
                 <input
                   type="date"
-                  defaultValue={new Date().toISOString().slice(0, 10)}
+                  value={form.expense_date}
+onChange={(event) =>
+  setForm((current) => ({
+    ...current,
+    expense_date: event.target.value,
+  }))
+}
                   className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none"
                 />
               </label>
@@ -135,7 +190,16 @@ export default function Expenses() {
                   Categoria
                 </span>
 
-                <select className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none">
+                <select
+  value={form.category}
+  onChange={(event) =>
+    setForm((current) => ({
+      ...current,
+      category: event.target.value,
+    }))
+  }
+  className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none"
+>
                   <option value="">Selecione uma categoria</option>
                   <option value="maintenance">Manutenção</option>
                   <option value="cleaning">Limpeza</option>
@@ -148,9 +212,85 @@ export default function Expenses() {
                 </select>
               </label>
             </div>
+
+            <div className="mt-4">
+  <label className="block space-y-2">
+    <span className="text-sm font-medium text-slate-300">
+      Valor da despesa
+    </span>
+
+    <input
+      type="number"
+      step="0.01"
+      min="0"
+      placeholder="R$ 0,00"
+      value={form.amount}
+onChange={(event) =>
+  setForm((current) => ({
+    ...current,
+    amount: event.target.value,
+  }))
+}
+      className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none"
+    />
+  </label>
+</div>
+<div className="mt-4">
+  <label className="block space-y-2">
+    <span className="text-sm font-medium text-slate-300">
+      Descrição
+    </span>
+
+    <input
+      type="text"
+      value={form.description}
+onChange={(event) =>
+  setForm((current) => ({
+    ...current,
+    description: event.target.value,
+  }))
+}
+      placeholder="Ex.: troca de óleo, lavagem, película..."
+      className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none"
+    />
+  </label>
+</div>
+<div className="mt-4">
+  <label className="block space-y-2">
+    <span className="text-sm font-medium text-slate-300">
+      Origem do recurso
+    </span>
+
+  <select
+  value={form.payment_source}
+  onChange={(event) =>
+    setForm((current) => ({
+      ...current,
+      payment_source: event.target.value,
+    }))
+  }
+  className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none"
+>
+      <option value="">Selecione a origem</option>
+      <option value="vehicle_fund">Fundo do veículo</option>
+      <option value="clei">Clei</option>
+      <option value="edson">Edson</option>
+    </select>
+  </label>
+</div>
+<div className="mt-6 flex justify-end">
+  <button
+    type="submit"
+    className="rounded-2xl border border-amber-300/20 bg-amber-300/15 px-4 py-3 text-sm font-semibold text-amber-200"
+  >
+    Salvar despesa
+  </button>
+</div>
+
+</form>
           </div>
         </div>
       ) : null}
     </div>
-  )
+  )     
 }

@@ -15,6 +15,7 @@ export default function Expenses() {
   amount: '',
   description: '',
   payment_source: '',
+  payment_method: 'PIX',
 })
 
   const loadExpenses = async () => {
@@ -59,6 +60,7 @@ export default function Expenses() {
     amount: form.amount,
     description: form.description,
     source: form.payment_source,
+    payment_method: form.payment_method,
   }
 
   const { error } = await createExpense(payload)
@@ -75,6 +77,7 @@ export default function Expenses() {
     amount: '',
     description: '',
     payment_source: '',
+    payment_method: 'PIX',
   })
 
   setShowForm(false)
@@ -174,6 +177,10 @@ export default function Expenses() {
   edson: 'Edson',
 }[expense.source] || 'Não informada'}
             </p>
+            <p>
+  <span className="text-slate-500">Forma de pagamento:</span>{' '}
+  {expense.payment_method || 'Não informada'}
+</p>
           </div>
         </div>
       )
@@ -338,6 +345,29 @@ onChange={(event) =>
       <option value="vehicle_fund">Fundo do veículo</option>
       <option value="clei">Clei</option>
       <option value="edson">Edson</option>
+    </select>
+  </label>
+</div>
+<div className="mt-4">
+  <label className="block space-y-2">
+    <span className="text-sm font-medium text-slate-300">
+      Forma de pagamento
+    </span>
+
+    <select
+      value={form.payment_method}
+      onChange={(event) =>
+        setForm((current) => ({
+          ...current,
+          payment_method: event.target.value,
+        }))
+      }
+      className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none"
+    >
+      <option value="PIX">PIX</option>
+      <option value="Cartão">Cartão</option>
+      <option value="Dinheiro">Dinheiro</option>
+      <option value="Boleto">Boleto</option>
     </select>
   </label>
 </div>

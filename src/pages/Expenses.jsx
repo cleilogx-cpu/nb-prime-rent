@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { PlusCircle } from 'lucide-react'
-import { createExpense, listExpenses } from '../services/expensesService.js'
+import { createExpense, deleteExpense, listExpenses } from '../services/expensesService.js'
 import { listVehicles } from '../services/vehiclesService.js'
 
 export default function Expenses() {
@@ -83,6 +83,24 @@ export default function Expenses() {
   setShowForm(false)
   await loadExpenses()
 }
+const handleDelete = async (expense) => {
+  const confirmed = window.confirm(
+    `Deseja realmente excluir a despesa "${expense.description || 'Sem descrição'}"?`
+  )
+
+  if (!confirmed) {
+    return
+  }
+
+  const { error } = await deleteExpense(expense.id)
+
+  if (error) {
+    console.error('Erro ao excluir despesa:', error)
+    return
+  }
+
+  await loadExpenses()
+}
   return (
     <div className="space-y-8">
       <section className="rounded-[32px] border border-white/10 bg-slate-900/80 p-6 shadow-xl shadow-black/30 sm:p-8">
@@ -145,6 +163,22 @@ export default function Expenses() {
                 minimumFractionDigits: 2,
               })}
             </p>
+            <div className="mt-3 flex justify-end gap-2">
+  <button
+    type="button"
+    className="rounded-xl border border-white/10 px-3 py-1.5 text-xs text-slate-300"
+  >
+    Editar
+  </button>
+
+  <button
+    type="button"
+    onClick={() => handleDelete(expense)}
+    className="rounded-xl border border-red-400/20 px-3 py-1.5 text-xs text-red-300"
+  >
+    Excluir
+  </button>
+</div>
           </div>
 
           <div className="mt-5 space-y-2 text-sm text-slate-400">

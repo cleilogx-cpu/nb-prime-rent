@@ -50,3 +50,13 @@ export async function getExpensesByVehicle(vehicleId) {
     error,
   }
 }
+export async function deleteExpense(id) {
+  const { data, error } = await supabase
+    .from(EXPENSES_TABLE)
+    .delete()
+    .eq('id', id)
+    .select('*')
+    .single()
+
+  return { data, error }
+}

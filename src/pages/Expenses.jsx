@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react'
 import { PlusCircle } from 'lucide-react'
-import { createExpense, deleteExpense, listExpenses } from '../services/expensesService.js'
+import {
+  createExpense,
+  deleteExpense,
+  listExpenses,
+  updateExpense,
+} from '../services/expensesService.js'
 import { listVehicles } from '../services/vehiclesService.js'
 
 export default function Expenses() {
   const [expenses, setExpenses] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [editingExpenseId, setEditingExpenseId] = useState(null)
   const [vehicles, setVehicles] = useState([])
   const [form, setForm] = useState({
   vehicle_id: '',
@@ -63,7 +69,9 @@ export default function Expenses() {
     payment_method: form.payment_method,
   }
 
-  const { error } = await createExpense(payload)
+  const { error } = editingExpenseId
+  ? await updateExpense(editingExpenseId, payload)
+  : await createExpense(payload)
 
   if (error) {
     console.error('Erro ao salvar despesa:', error)
@@ -80,6 +88,7 @@ export default function Expenses() {
     payment_method: 'PIX',
   })
 
+  setEditingExpenseId(null)
   setShowForm(false)
   await loadExpenses()
 }
@@ -100,6 +109,21 @@ const handleDelete = async (expense) => {
   }
 
   await loadExpenses()
+}
+const handleEdit = (expense) => {
+  setEditingExpenseId(expense.id)
+
+  setForm({
+    vehicle_id: expense.vehicle_id || '',
+    expense_date: expense.expense_date || new Date().toISOString().slice(0, 10),
+    category: expense.category || '',
+    amount: expense.amount ?? '',
+    description: expense.description || '',
+    payment_source: expense.source || '',
+    payment_method: expense.payment_method || 'PIX',
+  })
+
+  setShowForm(true)
 }
   return (
     <div className="space-y-8">
@@ -166,6 +190,7 @@ const handleDelete = async (expense) => {
             <div className="mt-3 flex justify-end gap-2">
   <button
     type="button"
+    onClick={() => handleEdit(expense)}
     className="rounded-xl border border-white/10 px-3 py-1.5 text-xs text-slate-300"
   >
     Editar
@@ -227,11 +252,11 @@ const handleDelete = async (expense) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm uppercase tracking-[0.35em] text-amber-300/80">
-                  Nova despesa
+                  {editingExpenseId ? 'Editar despesa' : 'Nova despesa'}
                 </p>
 
                 <h3 className="mt-2 text-2xl font-semibold text-white">
-                  Registrar despesa
+                  {editingExpenseId ? 'Atualizar despesa' : 'Registrar despesa'}
                 </h3>
               </div>
 
@@ -410,7 +435,7 @@ onChange={(event) =>
     type="submit"
     className="rounded-2xl border border-amber-300/20 bg-amber-300/15 px-4 py-3 text-sm font-semibold text-amber-200"
   >
-    Salvar despesa
+    {editingExpenseId ? 'Atualizar despesa' : 'Salvar despesa'}
   </button>
 </div>
 

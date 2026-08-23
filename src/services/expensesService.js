@@ -60,3 +60,25 @@ export async function deleteExpense(id) {
 
   return { data, error }
 }
+
+export async function updateExpense(id, payload) {
+  const normalizedPayload = {
+    vehicle_id: payload.vehicle_id,
+    expense_date: payload.expense_date,
+    category: payload.category || 'other',
+    description: payload.description || '',
+    amount: Number(payload.amount ?? 0),
+    source: payload.source || null,
+    payment_method: payload.payment_method || null,
+    notes: payload.notes || null,
+  }
+
+  const { data, error } = await supabase
+    .from(EXPENSES_TABLE)
+    .update(normalizedPayload)
+    .eq('id', id)
+    .select('*')
+    .single()
+
+  return { data, error }
+}

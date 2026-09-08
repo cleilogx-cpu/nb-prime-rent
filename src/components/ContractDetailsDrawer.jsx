@@ -2,18 +2,7 @@ import { useState } from 'react'
 import { CheckCircle2, Download, FileText, X, XCircle } from 'lucide-react'
 import { downloadContractDocx } from '../lib/contractDocx.js'
 import { downloadContractPdf } from '../lib/contractPdf.js'
-
-function formatDate(value) {
-  if (!value) return 'Não definida'
-  const date = new Date(`${value}T00:00:00`)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleDateString('pt-BR')
-}
-
-function formatBRL(value) {
-  if (value === null || value === undefined || value === '') return 'Não informado'
-  return `R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
+import { formatCurrency, formatDate } from '../lib/format.js'
 
 const FINANCE_LABELS = { partners: 'Sócios', savings: 'Fundo' }
 
@@ -71,7 +60,7 @@ export default function ContractDetailsDrawer({ open, contract, onClose, onSign,
           </div>
           <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-4 text-sm text-slate-300">
             <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Valor semanal / Caução</p>
-            <p className="mt-1 text-white">{formatBRL(contract.weekly_rent)} / {formatBRL(contract.deposit_amount)}</p>
+            <p className="mt-1 text-white">{formatCurrency(contract.weekly_rent)} / {formatCurrency(contract.deposit_amount)}</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-4 text-sm text-slate-300 sm:col-span-2">
             <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Locatário</p>

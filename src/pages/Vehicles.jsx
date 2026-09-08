@@ -6,6 +6,7 @@ import VehicleForm from '../components/VehicleForm.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import Toast from '../components/Toast.jsx'
 import { createVehicle, deleteVehicle, listVehicles, updateVehicle } from '../services/vehiclesService.js'
+import { summarizeVehicleStatuses } from '../lib/vehicleStatus.js'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 
 function SummaryCard({ label, value, icon }) {
@@ -109,18 +110,7 @@ export default function Vehicles() {
     setSelectedVehicle(null)
   }
 
-  const rentedCount = vehicles.filter((vehicle) => {
-    const status = String(vehicle.status ?? '').toLowerCase()
-    return status && status !== 'disponível' && status !== 'available'
-  }).length
-
-  const availableCount = vehicles.filter((vehicle) => {
-    const status = String(vehicle.status ?? '').toLowerCase()
-    return status === 'disponível' || status === 'available'
-  }).length
-
-  const maintenanceCount = vehicles.filter((vehicle) => String(vehicle.status ?? '').toLowerCase() === 'manutenção').length
-  const totalCount = vehicles.length
+  const { rentedCount, availableCount, maintenanceCount, totalCount } = summarizeVehicleStatuses(vehicles)
 
   if (loading) {
     return <LoadingScreen />

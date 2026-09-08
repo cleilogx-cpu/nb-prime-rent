@@ -23,7 +23,6 @@ export default function VehicleFilters({ search, setSearch, statusFilter, setSta
           <option value="Disponível">Disponível</option>
           <option value="Alugado">Alugado</option>
           <option value="Manutenção">Manutenção</option>
-          <option value="Inativo">Inativo</option>
         </select>
       </label>
     </div>

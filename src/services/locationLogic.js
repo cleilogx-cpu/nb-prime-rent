@@ -30,28 +30,8 @@ export function normalizeLocationStatus(status) {
   return status || 'Ativa'
 }
 
-export function formatCurrency(value) {
-  const numericValue = Number(value)
-  if (Number.isNaN(numericValue)) {
-    return 'R$ 0,00'
-  }
-
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    minimumFractionDigits: 2,
-  }).format(numericValue)
-}
-
-export function formatDate(value) {
-  if (!value) {
-    return 'Não informado'
-  }
-
-  const parsedDate = new Date(`${value}T00:00:00`)
-  if (Number.isNaN(parsedDate.getTime())) {
-    return value
-  }
-
-  return parsedDate.toLocaleDateString('pt-BR')
-}
+// formatCurrency/formatDate viviam aqui, mas eram uma cópia (junto com mais
+// 5 outras espalhadas pelo código) da mesma formatação de moeda/data. Agora
+// tem uma fonte só em src/lib/format.js — re-exportado aqui pra não precisar
+// mudar todo mundo que já importa daqui (Locations.jsx, Historico.jsx).
+export { formatCurrency, formatDate } from '../lib/format.js'

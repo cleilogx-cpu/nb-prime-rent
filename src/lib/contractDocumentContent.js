@@ -1,4 +1,5 @@
 import { generatePaymentSchedule } from './contractLogic.js'
+import { formatCurrency, formatDate } from './format.js'
 
 // Dados fixos da locadora (empresa). O LOCADOR que assina é sempre o mesmo,
 // independente do tipo de pagamento (sócios/fundo) escolhido no contrato.
@@ -18,17 +19,6 @@ const PIX = {
 }
 
 const FRANQUIA_SEGURO = 8845
-
-function formatBRL(value) {
-  return `R$ ${Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-
-function formatDate(value) {
-  if (!value) return 'Não definido'
-  const date = new Date(`${value}T00:00:00`)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleDateString('pt-BR')
-}
 
 function numeroPorExtenso(n) {
   const nomes = ['zero', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove', 'dez',
@@ -94,7 +84,7 @@ export function buildContractSections(contract) {
   sections.push({ type: 'subheading', text: '4. DOS VALORES E FORMA DE PAGAMENTO' })
   sections.push({
     type: 'paragraph',
-    text: `CLÁUSULA 3ª — O valor da locação é de ${formatBRL(dailyRent)} por dia, totalizando ${formatBRL(weeklyRent)} a ser pago semanalmente, conforme cronograma abaixo:`,
+    text: `CLÁUSULA 3ª — O valor da locação é de ${formatCurrency(dailyRent)} por dia, totalizando ${formatCurrency(weeklyRent)} a ser pago semanalmente, conforme cronograma abaixo:`,
   })
   sections.push({
     type: 'list',
@@ -112,7 +102,7 @@ export function buildContractSections(contract) {
   sections.push({ type: 'subheading', text: '5. DO DEPÓSITO CAUÇÃO' })
   sections.push({
     type: 'paragraph',
-    text: `CLÁUSULA 6ª — No ato da assinatura, o LOCATÁRIO depositará a quantia de ${formatBRL(deposit)} a título de caução, para garantia de eventuais danos ao veículo, multas de trânsito ou inadimplência contratual, conforme combinado entre as partes.`,
+    text: `CLÁUSULA 6ª — No ato da assinatura, o LOCATÁRIO depositará a quantia de ${formatCurrency(deposit)} a título de caução, para garantia de eventuais danos ao veículo, multas de trânsito ou inadimplência contratual, conforme combinado entre as partes.`,
   })
   sections.push({
     type: 'paragraph',
@@ -147,7 +137,7 @@ export function buildContractSections(contract) {
   sections.push({ type: 'subheading', text: '7. DA FRANQUIA DO SEGURO E RESPONSABILIDADE EM SINISTRO' })
   sections.push({
     type: 'paragraph',
-    text: `CLÁUSULA 10ª — Em caso de sinistro (colisão, roubo, furto, incêndio ou danos a terceiros) envolvendo o veículo locado, o LOCATÁRIO obriga-se a arcar integralmente com o valor de ${formatBRL(FRANQUIA_SEGURO)} referente à franquia do seguro, conforme estipulado na apólice vigente, independentemente de culpa pela ocorrência do evento.`,
+    text: `CLÁUSULA 10ª — Em caso de sinistro (colisão, roubo, furto, incêndio ou danos a terceiros) envolvendo o veículo locado, o LOCATÁRIO obriga-se a arcar integralmente com o valor de ${formatCurrency(FRANQUIA_SEGURO)} referente à franquia do seguro, conforme estipulado na apólice vigente, independentemente de culpa pela ocorrência do evento.`,
   })
   sections.push({
     type: 'paragraph',

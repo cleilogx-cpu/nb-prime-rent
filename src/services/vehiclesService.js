@@ -1,7 +1,16 @@
 import { supabase } from '../lib/supabaseClient.js'
+import { VEHICLE_STATUS } from '../lib/constants.js'
 
 const AUDIT_TABLE = 'audit_logs'
 
+/**
+ * `status` NUNCA é aceito aqui como escolha livre — "Alugado" só é escrito
+ * por contractsService.signContract / locationsService.endLocation. O
+ * formulário de veículo não manda mais `status` no payload (só `maintenance`,
+ * que é independente); se por algum motivo vier um `status` explícito
+ * (ex: um caller interno), ele é ignorado — quem quiser mudar o status bruto
+ * de verdade usa os serviços de contrato/locação, não este normalizador.
+ */
 function normalizePayload(payload) {
   return {
     plate: payload.plate?.trim().toUpperCase() ?? null,
@@ -17,7 +26,7 @@ function normalizePayload(payload) {
     next_review_km: payload.next_review_km === '' || payload.next_review_km === null || payload.next_review_km === undefined
       ? null
       : Number(payload.next_review_km),
-    status: payload.status?.trim() ?? null,
+    maintenance: Boolean(payload.maintenance),
   }
 }
 
@@ -49,6 +58,13 @@ async function logVehicleAudit(action, entityId, beforeData, afterData) {
   }
 }
 
+/**
+ * "Manutenção" filtra pela coluna independente `maintenance` (um veículo
+ * alugado em manutenção também aparece aqui). "Disponível" e "Alugado"
+ * continuam filtrando pela coluna `status`, mas "Disponível" também exige
+ * `maintenance = false` — senão um veículo em manutenção apareceria como
+ * "disponível" pra alugar.
+ */
 export async function listVehicles(filters = {}) {
   const { search = '', status = '' } = filters
 
@@ -58,8 +74,12 @@ export async function listVehicles(filters = {}) {
     query = query.or(`plate.ilike.%${search}%,model.ilike.%${search}%`)
   }
 
-  if (status) {
-    query = query.eq('status', status)
+  if (status === 'Manutenção') {
+    query = query.eq('maintenance', true)
+  } else if (status === VEHICLE_STATUS.DISPONIVEL) {
+    query = query.eq('status', VEHICLE_STATUS.DISPONIVEL).eq('maintenance', false)
+  } else if (status === VEHICLE_STATUS.ALUGADO) {
+    query = query.eq('status', VEHICLE_STATUS.ALUGADO)
   }
 
   const { data, error } = await query.order('created_at', { ascending: false })
@@ -74,7 +94,9 @@ export async function getVehicleById(id) {
 }
 
 export async function createVehicle(payload) {
-  const normalizedPayload = normalizePayload(payload)
+  // Todo veículo novo nasce "Disponível" — vira "Alugado" só quando um
+  // contrato for assinado (contractsService.signContract).
+  const normalizedPayload = { ...normalizePayload(payload), status: VEHICLE_STATUS.DISPONIVEL }
 
   const { data, error } = await supabase.from('vehicles').insert(normalizedPayload).select('*').single()
 

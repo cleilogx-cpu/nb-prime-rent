@@ -5,6 +5,9 @@ import {
   calculateNextPartnerBeneficiary,
   validateFinancialDestination,
 } from '../lib/paymentLogic.js'
+import { matchPaymentToCharge, unmatchChargeForPayment } from './chargesService.js'
+import { recalculateReceivedAmount } from './depositsService.js'
+import { RECEIPT_TYPE } from '../lib/constants.js'
 
 const PAYMENT_TABLE = 'rental_payments'
 const AUDIT_TABLE = 'audit_logs'
@@ -92,6 +95,7 @@ function normalizePaymentPayload(payload) {
     vehicle_id: payload.vehicle_id,
     rental_id: payload.rental_id || null,
     tenant_id: payload.tenant_id || null,
+    contract_id: payload.contract_id || null,
     payment_date:
       payload.payment_date || new Date().toISOString().slice(0, 10),
 
@@ -329,6 +333,15 @@ export async function cancelPayment(id, payload = {}) {
       data,
       payload.cancellation_reason,
     )
+
+    // Desfaz a ligação com a cobrança (volta a aparecer em "atrasados" se
+    // for o caso) ou recalcula o saldo da caução -- um recebimento
+    // cancelado não deve continuar contando como dinheiro recebido.
+    if (data.receipt_type === RECEIPT_TYPE.RENT) {
+      await unmatchChargeForPayment(data.id)
+    } else if (data.receipt_type === RECEIPT_TYPE.DEPOSIT && data.contract_id) {
+      await recalculateReceivedAmount(data.contract_id)
+    }
   }
 
   return {
@@ -456,6 +469,18 @@ export async function createPaymentWithDestinationRules(payload) {
       payload.vehicle_id,
       followingBeneficiary,
     )
+  }
+
+  if (!result.error && result.data) {
+    // Liga o recebimento à cobrança/caução correspondente -- é isso que dá
+    // uma relação confiável entre "o que deveria ser pago" e "o que
+    // efetivamente entrou", em vez de só inferir atraso pela ausência
+    // genérica de recebimentos.
+    if (result.data.receipt_type === RECEIPT_TYPE.RENT) {
+      await matchPaymentToCharge(result.data)
+    } else if (result.data.receipt_type === RECEIPT_TYPE.DEPOSIT && result.data.contract_id) {
+      await recalculateReceivedAmount(result.data.contract_id)
+    }
   }
 
   return result

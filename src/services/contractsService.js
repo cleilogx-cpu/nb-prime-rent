@@ -7,6 +7,8 @@ import {
   validateContractDates,
 } from '../lib/contractLogic.js'
 import { PERIODICITY, VEHICLE_STATUS } from '../lib/constants.js'
+import { generateChargesForContract } from './chargesService.js'
+import { createOrSyncDepositForContract } from './depositsService.js'
 
 const TABLE = 'contracts'
 
@@ -121,6 +123,15 @@ export async function createContract(payload) {
     .select(CONTRACT_SELECT)
     .single()
 
+  if (!error && data) {
+    // Cria a caução automaticamente junto com o contrato (seção 8 do
+    // pedido) -- contract_id é UNIQUE, então isso nunca duplica.
+    const { error: depositError } = await createOrSyncDepositForContract(data)
+    if (depositError) {
+      console.warn('Falha ao criar a caução do contrato:', depositError.message)
+    }
+  }
+
   return { data, error }
 }
 
@@ -134,6 +145,15 @@ export async function updateContract(id, payload) {
     .eq('status', 'Rascunho')
     .select(CONTRACT_SELECT)
     .single()
+
+  if (!error && data) {
+    // Só sincroniza o valor total -- nunca cria uma segunda caução nem
+    // mexe no que já foi recebido (seção 8: editar o contrato não duplica).
+    const { error: depositError } = await createOrSyncDepositForContract(data)
+    if (depositError) {
+      console.warn('Falha ao sincronizar a caução do contrato:', depositError.message)
+    }
+  }
 
   return { data, error }
 }
@@ -191,6 +211,15 @@ export async function signContract(id, { signed_document_url } = {}) {
 
   if (rentalError) {
     return { data: null, error: rentalError }
+  }
+
+  // Gera o cronograma de cobranças de verdade (persistido, não só impresso
+  // no documento) -- é isso que sustenta "Próximos vencimentos"/"Pagamentos
+  // atrasados" no Dashboard. Só acontece aqui, na assinatura -- um rascunho
+  // nunca gera cobrança de ninguém.
+  const { error: chargesError } = await generateChargesForContract(contract, rental)
+  if (chargesError) {
+    console.warn('Falha ao gerar as cobranças do contrato:', chargesError.message)
   }
 
   const { data: updatedContract, error: updateError } = await supabase

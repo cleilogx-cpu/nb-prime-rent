@@ -7,6 +7,7 @@ import Vehicles from './pages/Vehicles.jsx'
 import Locations from './pages/Locations.jsx'
 import Payments from './pages/Payments.jsx'
 import Contracts from './pages/Contracts.jsx'
+import Deposits from './pages/Deposits.jsx'
 import Expenses from './pages/Expenses.jsx'
 import Historico from './pages/Historico.jsx'
 import PlaceholderPage from './pages/PlaceholderPage.jsx'
@@ -36,10 +37,7 @@ function App() {
               path="recebimentos"
               element={<PlaceholderPage title="Recebimentos" description="Controle de pagamentos e recebimentos com fluxo financeiro claro." />}
             />
-            <Route
-              path="caucoes"
-              element={<PlaceholderPage title="Cauções" description="Registre garantias e cauções com histórico e saldos." />}
-            />
+            <Route path="caucoes" element={<Deposits />} />
             <Route path="despesas" element={<Expenses />} />
             <Route
               path="manutencao"

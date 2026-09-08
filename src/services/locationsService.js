@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient.js'
+import { markDepositPendingRefund } from './depositsService.js'
 
 const TABLE = 'rentals'
 const RENTAL_SELECT = '*, tenants(*), vehicles(*), contracts(contract_number, finance_model)'
@@ -101,6 +102,13 @@ export async function endLocation(id, payload) {
 
     if (contractError) {
       console.warn('Falha ao marcar o contrato como encerrado:', contractError.message)
+    }
+
+    // Se algum valor de caução foi efetivamente recebido, ela passa a
+    // precisar de devolução. Se nunca recebeu nada, fica como estava.
+    const { error: depositError } = await markDepositPendingRefund(rental.contract_id)
+    if (depositError) {
+      console.warn('Falha ao atualizar o status da caução para devolução:', depositError.message)
     }
   }
 

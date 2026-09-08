@@ -9,6 +9,7 @@ import CancelPaymentDialog from '../components/CancelPaymentDialog.jsx'
 import Toast from '../components/Toast.jsx'
 import { cancelPayment, listPayments } from '../services/paymentsService.js'
 import { listActiveLocations } from '../services/locationsService.js'
+import { listDeposits } from '../services/depositsService.js'
 import { useAuth } from '../hooks/useAuth.jsx'
 import { supabase } from '../lib/supabaseClient.js'
 
@@ -16,6 +17,7 @@ export default function Payments() {
   const { user } = useAuth()
   const [payments, setPayments] = useState([])
   const [locations, setLocations] = useState([])
+  const [deposits, setDeposits] = useState([])
   const [vehicles, setVehicles] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -32,9 +34,10 @@ export default function Payments() {
 
   const loadData = async () => {
     setLoading(true)
-    const [{ data: paymentsData, error: paymentsError }, { data: locationsData }, { data: vehiclesData }] = await Promise.all([
+    const [{ data: paymentsData, error: paymentsError }, { data: locationsData }, { data: depositsData }, { data: vehiclesData }] = await Promise.all([
       listPayments(),
       listActiveLocations(),
+      listDeposits(),
       supabase.from('vehicles').select('*').order('created_at', { ascending: false }),
     ])
 
@@ -44,6 +47,7 @@ export default function Payments() {
 
     setPayments(paymentsData ?? [])
     setLocations(locationsData ?? [])
+    setDeposits(depositsData ?? [])
     setVehicles(vehiclesData ?? [])
     setLoading(false)
   }
@@ -97,7 +101,7 @@ export default function Payments() {
       return
     }
 
-    const { error } = await cancelPayment(selectedPayment.id, { cancellation_reason: reason, cancelled_by: user?.email || 'system' })
+    const { error } = await cancelPayment(selectedPayment.id, { cancellation_reason: reason, cancelled_by: user?.id || null })
     if (error) {
       setToast({ message: error.message || 'Não foi possível cancelar o recebimento.', type: 'error' })
     } else {
@@ -214,7 +218,7 @@ const cleiTotal = payments
         </div>
       ) : null}
 
-      <PaymentForm open={showForm} onClose={() => setShowForm(false)} locations={locations} vehicles={vehicles} onSaved={handleSave} userId={user?.id || user?.email} />
+      <PaymentForm open={showForm} onClose={() => setShowForm(false)} locations={locations} vehicles={vehicles} deposits={deposits} onSaved={handleSave} userId={user?.id || user?.email} />
       <PaymentDetailsDrawer open={showDetails} payment={selectedPayment} onClose={() => setShowDetails(false)} />
       <CancelPaymentDialog open={showCancelDialog} payment={selectedPayment} onCancel={() => { setShowCancelDialog(false); setSelectedPayment(null) }} onConfirm={handleCancel} />
     </div>

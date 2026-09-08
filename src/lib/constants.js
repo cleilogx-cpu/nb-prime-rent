@@ -44,3 +44,32 @@ export const PERIODICITY_LABELS = {
   [PERIODICITY.BIWEEKLY]: 'Quinzenal',
   [PERIODICITY.MONTHLY]: 'Mensal',
 }
+
+// Recebimentos agora só admitem Aluguel ou Caução (seção 10 do pedido) --
+// Transporte/Outro saem do formulário de criação, mas continuam existindo
+// como valores possíveis em lançamentos antigos (o filtro/normalização em
+// paymentsService.js já tolera qualquer um dos quatro).
+export const RECEIPT_TYPE = {
+  RENT: 'rent',
+  DEPOSIT: 'deposit',
+}
+
+export const RECEIPT_TYPE_LABELS = {
+  [RECEIPT_TYPE.RENT]: 'Aluguel',
+  [RECEIPT_TYPE.DEPOSIT]: 'Caução',
+}
+
+// Status de contract_charges (cobranças/vencimentos).
+export const CHARGE_STATUS = {
+  PENDENTE: 'Pendente',
+  PAGO: 'Pago',
+}
+
+// Status de contract_deposits (caução).
+export const DEPOSIT_STATUS = {
+  PENDENTE: 'Pendente',
+  PARCIAL: 'Parcial',
+  QUITADA: 'Quitada',
+  A_DEVOLVER: 'A devolver',
+  DEVOLVIDA: 'Devolvida',
+}

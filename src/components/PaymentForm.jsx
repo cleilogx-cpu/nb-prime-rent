@@ -8,7 +8,8 @@ import {
 
 export default function PaymentForm({ open, onClose, locations, vehicles, payment, onSaved, userId }) {
   const [form, setForm] = useState({
-    location_id: payment?.location_id || '',
+    location_id: payment?.location_id || payment?.rental_id || '',
+    tenant_id: payment?.tenant_id || '',
     vehicle_id: payment?.vehicle_id || '',
     payment_date:
   payment?.payment_date || new Date().toISOString().slice(0, 10),
@@ -48,14 +49,17 @@ const proposedBeneficiary =
       ? 'Clei'
       : (nextVehicle?.next_destination || 'Clei')
 
+    const financeModel = location.contracts?.finance_model || 'partners'
+
     setForm((current) => ({
       ...current,
       location_id: location.id,
+      tenant_id: location.tenant_id,
       vehicle_id: location.vehicle_id,
-      finance_model: nextVehicle?.finance_model || 'partners',
-      destination: nextVehicle?.finance_model === 'savings' ? 'Fundo do veículo' : (proposedBeneficiary || ''),
+      finance_model: financeModel,
+      destination: financeModel === 'savings' ? 'Fundo do veículo' : (proposedBeneficiary || ''),
       amount: location.weekly_rent || current.amount,
-      notes: `${location.vehicle_plate} - ${location.tenant_name}`,
+      notes: `${location.vehicles?.plate || ''} - ${location.tenants?.full_name || ''}`,
     }))
   }
 
@@ -68,8 +72,10 @@ const proposedBeneficiary =
       ...form,
       created_by: userId || 'system',
       location_id: form.location_id,
-      location_tenant: selectedLocation?.tenant_name || '',
-      location_vehicle: selectedLocation?.vehicle_plate || '',
+      rental_id: form.location_id || null,
+      tenant_id: form.tenant_id || selectedLocation?.tenant_id || null,
+      location_tenant: selectedLocation?.tenants?.full_name || '',
+      location_vehicle: selectedLocation?.vehicles?.plate || '',
       vehicle_id: form.vehicle_id,
       finance_model: form.finance_model,
       destination: form.destination,
@@ -98,7 +104,7 @@ const proposedBeneficiary =
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 py-6">
-      <div className="w-full max-w-3xl overflow-y-auto rounded-[32px] border border-white/10 bg-slate-950 p-6 shadow-2xl shadow-black/50">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[32px] border border-white/10 bg-slate-950 p-6 shadow-2xl shadow-black/50">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm uppercase tracking-[0.35em] text-amber-300/80">Novo recebimento</p>
@@ -113,7 +119,7 @@ const proposedBeneficiary =
             <select value={form.location_id} onChange={(event) => handleSelectLocation(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" required>
               <option value="">Selecione uma locação</option>
               {locations.map((location) => (
-                <option key={location.id} value={location.id}>{location.vehicle_plate} — {location.tenant_name}</option>
+                <option key={location.id} value={location.id}>{location.vehicles?.plate} — {location.tenants?.full_name}</option>
               ))}
             </select>
           </label>
@@ -125,7 +131,7 @@ const proposedBeneficiary =
 
           <label className="space-y-2">
             <span className="text-sm font-medium text-slate-300">Locatário</span>
-            <input value={selectedLocation?.tenant_name || ''} readOnly className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" />
+            <input value={selectedLocation?.tenants?.full_name || ''} readOnly className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" />
           </label>
 
 <label className="space-y-2">

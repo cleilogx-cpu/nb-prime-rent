@@ -1,182 +1,224 @@
-import { buildContractStatus, calculateContractEndDate, cloneContractForRenewal, generateContractNumber, validateContractDates } from '../lib/contractLogic.js'
+import { supabase } from '../lib/supabaseClient.js'
+import { findOrCreateTenant } from './tenantsService.js'
+import {
+  addMonthsToDate,
+  deriveWeeksFromDates,
+  generateContractNumber,
+  validateContractDates,
+} from '../lib/contractLogic.js'
 
-const STORAGE_KEY = 'nb_prime_rent_contracts_v1'
+const TABLE = 'contracts'
 
-function readContracts() {
-  if (typeof window === 'undefined') {
-    return []
-  }
+const CONTRACT_SELECT = '*, tenants(*), vehicles(*)'
 
-  try {
-    const storedValue = window.localStorage.getItem(STORAGE_KEY)
-    if (!storedValue) {
-      return []
-    }
-    const parsedValue = JSON.parse(storedValue)
-    return Array.isArray(parsedValue) ? parsedValue : []
-  } catch (error) {
-    console.warn('Falha ao ler contratos locais:', error)
-    return []
+/**
+ * O prazo é escolhido em MESES na tela (3, 5, 6, 12...), mas o pagamento é
+ * semanal. Aqui a gente resolve os dois formatos:
+ * - se vier `duration_months`, calcula a data final a partir dele (pode ser
+ *   ajustada manualmente depois via `end_date`);
+ * - se vier `end_date` direto (ex: usuário editou a data manualmente), usa
+ *   ela como está;
+ * - `weeks` sempre é derivado das datas finais, porque é isso que dirige o
+ *   cronograma de cobrança semanal.
+ */
+function resolveContractDates(payload) {
+  const startDate = payload.start_date
+  const endDate = payload.end_date || addMonthsToDate(startDate, payload.duration_months)
+  const weeks = deriveWeeksFromDates(startDate, endDate)
+
+  return { startDate, endDate, weeks }
+}
+
+function normalizeContractPayload(payload) {
+  const { startDate, endDate, weeks } = resolveContractDates(payload)
+
+  return {
+    vehicle_id: payload.vehicle_id,
+    tenant_id: payload.tenant_id,
+    start_date: startDate,
+    end_date: endDate,
+    weeks,
+    weekly_rent: Number(payload.weekly_rent || 0),
+    deposit_amount: Number(payload.deposit_amount || 0),
+    initial_km: payload.initial_km === '' || payload.initial_km === null || payload.initial_km === undefined
+      ? null
+      : Number(payload.initial_km),
+    billing_day: payload.billing_day || null,
+    finance_model: payload.finance_model || 'partners',
+    observations: payload.observations || null,
+    clauses: payload.clauses || null,
   }
 }
 
-function writeContracts(contracts) {
-  if (typeof window === 'undefined') {
-    return
+export async function listContracts(filters = {}) {
+  const { search = '', status = '' } = filters
+
+  let query = supabase.from(TABLE).select(CONTRACT_SELECT).order('created_at', { ascending: false })
+
+  if (status) {
+    query = query.eq('status', status)
   }
 
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(contracts))
+  const { data, error } = await query
+
+  if (error) {
+    return { data: [], error }
+  }
+
+  const filtered = search
+    ? data.filter((contract) => {
+        const haystack = [
+          contract.contract_number,
+          contract.tenants?.full_name,
+          contract.vehicles?.plate,
+          contract.vehicles?.model,
+        ].join(' ').toLowerCase()
+        return haystack.includes(search.toLowerCase())
+      })
+    : data
+
+  return { data: filtered, error: null }
 }
 
-export async function listContracts() {
-  return readContracts().sort((first, second) => new Date(second.created_at || 0) - new Date(first.created_at || 0))
+export async function getContractById(id) {
+  const { data, error } = await supabase.from(TABLE).select(CONTRACT_SELECT).eq('id', id).single()
+
+  return { data, error }
 }
 
+/**
+ * Cria o contrato como Rascunho. O locatário é criado/atualizado (por CPF)
+ * na mesma chamada, então esta função recebe payload.tenant com os dados
+ * digitados na hora, além dos dados do próprio contrato.
+ */
 export async function createContract(payload) {
-  const validationError = validateContractDates(payload.start_date, payload.end_date)
+  const { startDate, endDate } = resolveContractDates(payload)
+
+  const validationError = validateContractDates(startDate, endDate)
   if (validationError) {
     return { data: null, error: { message: validationError } }
   }
 
-  const normalizedPayload = {
-    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`,
-    contract_number: payload.contract_number || generateContractNumber(new Date().getFullYear()),
-    location_id: payload.location_id || null,
-    vehicle_id: payload.vehicle_id || null,
-    vehicle_plate: payload.vehicle_plate || null,
-    vehicle_model: payload.vehicle_model || null,
-    vehicle_color: payload.vehicle_color || null,
-    tenant_name: payload.tenant_name || null,
-    start_date: payload.start_date || null,
-    end_date: payload.end_date || null,
-    weekly_rent: Number(payload.weekly_rent || 0),
-    deposit: Number(payload.deposit || 0),
-    weeks: Number(payload.weeks || 0),
-    billing_day: payload.billing_day || null,
-    finance_model: payload.finance_model || 'partners',
-    observations: payload.observations || '',
-    clauses: payload.clauses || '',
-    responsible_name: payload.responsible_name || 'Sistema',
-    status: buildContractStatus(payload.status, payload.end_date),
-    created_at: new Date().toISOString(),
-    history: payload.history || [],
-    metadata: {
-      createdInCompatMode: true,
-      migrationNote: 'Este armazenamento local será migrado para Supabase quando a tabela contracts existir.',
-      parentContractId: payload.parent_contract_id || null,
-      legalReviewWarning: 'Este modelo deve ser revisado por profissional jurídico antes do uso oficial.',
-    },
+  const { data: tenant, error: tenantError } = await findOrCreateTenant(payload.tenant || {})
+  if (tenantError) {
+    return { data: null, error: tenantError }
   }
 
-  const nextContracts = [normalizedPayload, ...readContracts()]
-  writeContracts(nextContracts)
-  return { data: normalizedPayload, error: null }
+  const normalizedPayload = normalizeContractPayload({ ...payload, tenant_id: tenant.id })
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .insert({
+      ...normalizedPayload,
+      contract_number: generateContractNumber(new Date().getFullYear()),
+      status: 'Rascunho',
+    })
+    .select(CONTRACT_SELECT)
+    .single()
+
+  return { data, error }
 }
 
 export async function updateContract(id, payload) {
-  const existingContracts = readContracts()
-  const nextContracts = existingContracts.map((contract) => {
-    if (contract.id !== id) {
-      return contract
-    }
+  const normalizedPayload = normalizeContractPayload(payload)
 
-    return {
-      ...contract,
-      ...payload,
-      status: buildContractStatus(payload.status || contract.status, payload.end_date || contract.end_date),
-      end_date: payload.end_date || contract.end_date,
-      weekly_rent: Number(payload.weekly_rent ?? contract.weekly_rent ?? 0),
-      deposit: Number(payload.deposit ?? contract.deposit ?? 0),
-      weeks: Number(payload.weeks ?? contract.weeks ?? 0),
-      history: payload.history || contract.history || [],
-    }
-  })
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update(normalizedPayload)
+    .eq('id', id)
+    .eq('status', 'Rascunho')
+    .select(CONTRACT_SELECT)
+    .single()
 
-  writeContracts(nextContracts)
-  return { data: nextContracts.find((contract) => contract.id === id) || null, error: null }
+  return { data, error }
 }
 
-export async function renewContract(id, payload) {
-  const existingContracts = readContracts()
-  const originalContract = existingContracts.find((contract) => contract.id === id)
-  if (!originalContract) {
-    return { data: null, error: { message: 'Contrato não encontrado.' } }
-  }
+async function setVehicleStatus(vehicleId, status) {
+  const { error } = await supabase.from('vehicles').update({ status }).eq('id', vehicleId)
 
-  const renewedContract = {
-    ...cloneContractForRenewal(originalContract),
-    ...payload,
-    contract_number: payload.contract_number || generateContractNumber(new Date().getFullYear()),
-    start_date: payload.start_date || originalContract.start_date,
-    end_date: payload.end_date || calculateContractEndDate(payload.start_date || originalContract.start_date, payload.weeks || originalContract.weeks),
-    weekly_rent: Number(payload.weekly_rent ?? originalContract.weekly_rent ?? 0),
-    deposit: Number(payload.deposit ?? originalContract.deposit ?? 0),
-    history: payload.history || cloneContractForRenewal(originalContract).history,
-    metadata: {
-      ...(originalContract.metadata || {}),
-      parentContractId: originalContract.id,
-      renewalNote: 'Renovação criada a partir do contrato anterior.',
-    },
+  if (error) {
+    console.warn('Falha ao sincronizar status do veículo:', error.message)
   }
-
-  const nextContracts = [renewedContract, ...existingContracts]
-  writeContracts(nextContracts)
-  return { data: renewedContract, error: null }
 }
 
-export async function endContract(id, payload = {}) {
-  const existingContracts = readContracts()
-  const targetContract = existingContracts.find((contract) => contract.id === id)
-  if (!targetContract) {
-    return { data: null, error: { message: 'Contrato não encontrado.' } }
+/**
+ * Marca o contrato como assinado (Ativo). Isso automaticamente:
+ * 1. cria a locação (rentals) ligada a este contrato;
+ * 2. muda o veículo para "Alugado".
+ * Não permite assinar dois contratos ativos para o mesmo veículo ao mesmo tempo.
+ */
+export async function signContract(id, { signed_document_url } = {}) {
+  const { data: contract, error: fetchError } = await getContractById(id)
+  if (fetchError || !contract) {
+    return { data: null, error: fetchError || { message: 'Contrato não encontrado.' } }
   }
 
-  const nextContracts = existingContracts.map((contract) => {
-    if (contract.id !== id) {
-      return contract
-    }
-    return {
-      ...contract,
-      status: 'Encerrado',
-      end_date: payload.end_date || contract.end_date,
-      observation: payload.observations || contract.observations,
-      history: [
-        ...(contract.history || []),
-        { action: 'Encerrado', at: new Date().toISOString(), note: payload.observations || '' },
-      ],
-    }
-  })
+  if (contract.status === 'Ativo') {
+    return { data: null, error: { message: 'Este contrato já está ativo.' } }
+  }
 
-  writeContracts(nextContracts)
-  return { data: nextContracts.find((contract) => contract.id === id) || null, error: null }
+  const { data: existingActiveRental } = await supabase
+    .from('rentals')
+    .select('id')
+    .eq('vehicle_id', contract.vehicle_id)
+    .eq('status', 'Ativa')
+    .maybeSingle()
+
+  if (existingActiveRental) {
+    return { data: null, error: { message: 'Este veículo já tem uma locação ativa. Encerre-a antes de assinar um novo contrato.' } }
+  }
+
+  const { data: rental, error: rentalError } = await supabase
+    .from('rentals')
+    .insert({
+      contract_id: contract.id,
+      vehicle_id: contract.vehicle_id,
+      tenant_id: contract.tenant_id,
+      start_date: contract.start_date,
+      expected_end_date: contract.end_date,
+      initial_km: contract.initial_km,
+      weekly_rent: contract.weekly_rent,
+      status: 'Ativa',
+    })
+    .select('*')
+    .single()
+
+  if (rentalError) {
+    return { data: null, error: rentalError }
+  }
+
+  const { data: updatedContract, error: updateError } = await supabase
+    .from(TABLE)
+    .update({
+      status: 'Ativo',
+      rental_id: rental.id,
+      signed_document_url: signed_document_url || contract.signed_document_url,
+    })
+    .eq('id', id)
+    .select(CONTRACT_SELECT)
+    .single()
+
+  if (updateError) {
+    return { data: null, error: updateError }
+  }
+
+  await setVehicleStatus(contract.vehicle_id, 'Alugado')
+
+  return { data: updatedContract, error: null }
 }
 
 export async function cancelContract(id, payload = {}) {
-  const existingContracts = readContracts()
-  const targetContract = existingContracts.find((contract) => contract.id === id)
-  if (!targetContract) {
-    return { data: null, error: { message: 'Contrato não encontrado.' } }
-  }
-
-  const nextContracts = existingContracts.map((contract) => {
-    if (contract.id !== id) {
-      return contract
-    }
-    return {
-      ...contract,
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({
       status: 'Cancelado',
-      history: [
-        ...(contract.history || []),
-        { action: 'Cancelado', at: new Date().toISOString(), note: payload.reason || '' },
-      ],
-    }
-  })
+      observations: payload.reason
+        ? `Cancelado: ${payload.reason}`
+        : undefined,
+    })
+    .eq('id', id)
+    .select(CONTRACT_SELECT)
+    .single()
 
-  writeContracts(nextContracts)
-  return { data: nextContracts.find((contract) => contract.id === id) || null, error: null }
-}
-
-export async function getContractById(id) {
-  const contracts = readContracts()
-  return { data: contracts.find((contract) => contract.id === id) || null, error: null }
+  return { data, error }
 }

@@ -20,7 +20,7 @@ function formatDate(value) {
     return 'Não informado'
   }
 
-  const parsedDate = new Date(value)
+  const parsedDate = new Date(`${value}T00:00:00`)
   if (Number.isNaN(parsedDate.getTime())) {
     return value
   }

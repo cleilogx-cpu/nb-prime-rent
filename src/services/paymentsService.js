@@ -90,6 +90,8 @@ function normalizePaymentPayload(payload) {
 
   return {
     vehicle_id: payload.vehicle_id,
+    rental_id: payload.rental_id || null,
+    tenant_id: payload.tenant_id || null,
     payment_date:
       payload.payment_date || new Date().toISOString().slice(0, 10),
 
@@ -348,6 +350,9 @@ export async function getPaymentById(id) {
   }
 }
 
+// NOTA (Fase 2): finance_model virou parte do contrato (pode mudar por
+// locatário). next_destination continua no veículo de propósito — é a fila
+// de rodízio Clei/Edson daquele carro, contínua entre contratos.
 export async function getLastConfirmedPartnerBeneficiary(vehicleId) {
   const { data, error } = await supabase
     .from(PAYMENT_TABLE)
@@ -394,7 +399,7 @@ export async function calculateNextPartnerBeneficiaryForVehicle(
 export async function createPaymentWithDestinationRules(payload) {
   const { data: vehicle, error: vehicleError } = await supabase
     .from('vehicles')
-    .select('id,next_destination,finance_model')
+    .select('id,next_destination')
     .eq('id', payload.vehicle_id)
     .single()
 
@@ -405,8 +410,15 @@ export async function createPaymentWithDestinationRules(payload) {
     }
   }
 
+  const { data: activeContract } = await supabase
+    .from('contracts')
+    .select('finance_model')
+    .eq('vehicle_id', payload.vehicle_id)
+    .eq('status', 'Ativo')
+    .maybeSingle()
+
   const financeModel =
-    payload.finance_model || vehicle.finance_model
+    payload.finance_model || activeContract?.finance_model || 'partners'
 
   let destination = 'Fundo do veículo'
   let beneficiary = null

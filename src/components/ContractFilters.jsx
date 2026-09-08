@@ -1,37 +1,29 @@
-export default function ContractFilters({ search, setSearch, statusFilter, setStatusFilter, period, setPeriod, vehicleFilter, setVehicleFilter, tenantFilter, setTenantFilter, vehicles, tenants }) {
+export default function ContractFilters({ search, setSearch, statusFilter, setStatusFilter }) {
   return (
-    <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-      <label className="space-y-2">
-        <span className="text-sm uppercase tracking-[0.35em] text-slate-500">Pesquisar</span>
-        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Número, placa ou locatário" className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none" />
+    <div className="grid gap-3 rounded-[28px] border border-white/10 bg-slate-950/70 p-4 shadow-sm shadow-black/20 md:grid-cols-[2fr_1fr]">
+      <label className="flex flex-col gap-2 text-sm text-slate-300">
+        <span className="text-xs uppercase tracking-[0.3em] text-slate-500">Buscar</span>
+        <input
+          type="text"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Número, locatário, placa ou modelo"
+          className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
+        />
       </label>
-      <label className="space-y-2">
-        <span className="text-sm uppercase tracking-[0.35em] text-slate-500">Status</span>
-        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none">
+
+      <label className="flex flex-col gap-2 text-sm text-slate-300">
+        <span className="text-xs uppercase tracking-[0.3em] text-slate-500">Status</span>
+        <select
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value)}
+          className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none"
+        >
           <option value="">Todos</option>
           <option value="Rascunho">Rascunho</option>
           <option value="Ativo">Ativo</option>
           <option value="Encerrado">Encerrado</option>
           <option value="Cancelado">Cancelado</option>
-          <option value="Vencido">Vencido</option>
-        </select>
-      </label>
-      <label className="space-y-2">
-        <span className="text-sm uppercase tracking-[0.35em] text-slate-500">Período</span>
-        <input type="date" value={period} onChange={(event) => setPeriod(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none" />
-      </label>
-      <label className="space-y-2">
-        <span className="text-sm uppercase tracking-[0.35em] text-slate-500">Veículo</span>
-        <select value={vehicleFilter} onChange={(event) => setVehicleFilter(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none">
-          <option value="">Todos</option>
-          {vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.plate}</option>)}
-        </select>
-      </label>
-      <label className="space-y-2">
-        <span className="text-sm uppercase tracking-[0.35em] text-slate-500">Locatário</span>
-        <select value={tenantFilter} onChange={(event) => setTenantFilter(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none">
-          <option value="">Todos</option>
-          {tenants.map((tenant) => <option key={tenant} value={tenant}>{tenant}</option>)}
         </select>
       </label>
     </div>

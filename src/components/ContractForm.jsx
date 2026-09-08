@@ -1,180 +1,290 @@
-import { useEffect, useState } from 'react'
-import { createContract, renewContract, updateContract } from '../services/contractsService.js'
-import { calculateContractEndDate, validateContractDates } from '../lib/contractLogic.js'
-import LegalReviewNotice from './LegalReviewNotice.jsx'
+import { useEffect, useMemo, useState } from 'react'
+import { X } from 'lucide-react'
+import { listVehicles } from '../services/vehiclesService.js'
+import { addMonthsToDate, deriveWeeksFromDates } from '../lib/contractLogic.js'
 
-export default function ContractForm({ open, onClose, location, vehicle, contract, onSaved, locations }) {
-  const [form, setForm] = useState({
-    location_id: location?.id || contract?.location_id || '',
-    vehicle_id: location?.vehicle_id || contract?.vehicle_id || '',
-    vehicle_plate: location?.vehicle_plate || contract?.vehicle_plate || '',
-    vehicle_model: location?.vehicle_model || contract?.vehicle_model || '',
-    vehicle_color: contract?.vehicle_color || '',
-    tenant_name: location?.tenant_name || contract?.tenant_name || '',
-    start_date: contract?.start_date || '',
-    end_date: contract?.end_date || '',
-    weekly_rent: contract?.weekly_rent || location?.weekly_rent || '',
-    deposit: contract?.deposit || location?.deposit || '',
-    weeks: contract?.weeks || '',
-    billing_day: contract?.billing_day || '1',
-    finance_model: contract?.finance_model || location?.finance_model || 'partners',
-    observations: contract?.observations || '',
-    clauses: contract?.clauses || '',
-    responsible_name: contract?.responsible_name || 'Sistema',
-    status: contract?.status || 'Rascunho',
-  })
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
+const DURATION_PRESETS = [
+  { label: '3 meses', months: 3 },
+  { label: '6 meses', months: 6 },
+  { label: '12 meses', months: 12 },
+  { label: 'Personalizado', months: 'custom' },
+]
+
+const initialForm = {
+  vehicle_id: '',
+  finance_model: 'partners',
+  tenant: {
+    full_name: '',
+    cpf: '',
+    rg: '',
+    phone: '',
+    address: '',
+    cnh_number: '',
+    cnh_validity: '',
+  },
+  start_date: new Date().toISOString().slice(0, 10),
+  duration_months: 3,
+  end_date: '',
+  weekly_rent: '',
+  deposit_amount: '',
+  initial_km: '',
+  observations: '',
+}
+
+export default function ContractForm({ open, onClose, onSubmit, loading }) {
+  const [vehicles, setVehicles] = useState([])
+  const [form, setForm] = useState(initialForm)
+  const [errors, setErrors] = useState({})
+  const [customMonths, setCustomMonths] = useState('')
 
   useEffect(() => {
-    if (!location && !contract) {
+    if (!open) {
       return
     }
 
-    setForm((current) => ({
-      ...current,
-      location_id: location?.id || contract?.location_id || current.location_id,
-      vehicle_id: location?.vehicle_id || contract?.vehicle_id || current.vehicle_id,
-      vehicle_plate: location?.vehicle_plate || contract?.vehicle_plate || current.vehicle_plate,
-      vehicle_model: location?.vehicle_model || contract?.vehicle_model || current.vehicle_model,
-      tenant_name: location?.tenant_name || contract?.tenant_name || current.tenant_name,
-      weekly_rent: contract?.weekly_rent || location?.weekly_rent || current.weekly_rent,
-      deposit: contract?.deposit || location?.deposit || current.deposit,
-      finance_model: contract?.finance_model || location?.finance_model || current.finance_model,
-      start_date: contract?.start_date || current.start_date,
-      end_date: contract?.end_date || current.end_date,
-    }))
-  }, [location, contract])
+    setForm(initialForm)
+    setCustomMonths('')
+    setErrors({})
+
+    listVehicles({}).then(({ data }) => setVehicles(data ?? []))
+  }, [open])
+
+  const selectedVehicle = useMemo(
+    () => vehicles.find((vehicle) => vehicle.id === form.vehicle_id) || null,
+    [vehicles, form.vehicle_id],
+  )
+
+  const computedEndDate = useMemo(() => {
+    if (form.end_date) {
+      return form.end_date
+    }
+    const months = form.duration_months === 'custom' ? Number(customMonths || 0) : Number(form.duration_months)
+    return addMonthsToDate(form.start_date, months)
+  }, [form.start_date, form.duration_months, form.end_date, customMonths])
+
+  const computedWeeks = useMemo(
+    () => deriveWeeksFromDates(form.start_date, computedEndDate),
+    [form.start_date, computedEndDate],
+  )
 
   if (!open) {
     return null
   }
 
-  const handleSubmit = async (event) => {
-    event.preventDefault()
-    setLoading(true)
-    setMessage('')
+  const handleChange = (field, value) => {
+    setForm((current) => ({ ...current, [field]: value }))
+  }
 
-    const validationError = validateContractDates(form.start_date, form.end_date)
-    if (validationError) {
-      setMessage(validationError)
-      setLoading(false)
+  const handleTenantChange = (field, value) => {
+    setForm((current) => ({ ...current, tenant: { ...current.tenant, [field]: value } }))
+  }
+
+  const handleVehicleSelect = (vehicleId) => {
+    const vehicle = vehicles.find((item) => item.id === vehicleId)
+    setForm((current) => ({
+      ...current,
+      vehicle_id: vehicleId,
+      initial_km: vehicle?.current_km ?? current.initial_km,
+    }))
+  }
+
+  const validate = () => {
+    const nextErrors = {}
+
+    if (!form.vehicle_id) nextErrors.vehicle_id = 'Selecione um veículo.'
+    if (!form.tenant.full_name?.trim()) nextErrors.full_name = 'O nome do locatário é obrigatório.'
+    if (!form.tenant.cpf?.trim()) nextErrors.cpf = 'O CPF é obrigatório.'
+    if (!form.start_date) nextErrors.start_date = 'A data de início é obrigatória.'
+    if (!form.weekly_rent) nextErrors.weekly_rent = 'O valor semanal é obrigatório.'
+    if (form.duration_months === 'custom' && !customMonths) nextErrors.duration_months = 'Informe quantos meses.'
+
+    setErrors(nextErrors)
+    return Object.keys(nextErrors).length === 0
+  }
+
+  const submit = (event) => {
+    event.preventDefault()
+
+    if (!validate()) {
       return
     }
 
-    const payload = {
-      ...form,
-      location_id: form.location_id,
+    const months = form.duration_months === 'custom' ? Number(customMonths) : Number(form.duration_months)
+
+    onSubmit({
       vehicle_id: form.vehicle_id,
-      vehicle_plate: form.vehicle_plate,
-      vehicle_model: form.vehicle_model,
-      tenant_name: form.tenant_name,
-      start_date: form.start_date,
-      end_date: form.end_date || calculateContractEndDate(form.start_date, form.weeks),
-      weekly_rent: form.weekly_rent,
-      deposit: form.deposit,
-      weeks: form.weeks,
-      billing_day: form.billing_day,
       finance_model: form.finance_model,
+      tenant: form.tenant,
+      start_date: form.start_date,
+      duration_months: form.end_date ? undefined : months,
+      end_date: form.end_date || undefined,
+      weekly_rent: form.weekly_rent,
+      deposit_amount: form.deposit_amount,
+      initial_km: form.initial_km,
       observations: form.observations,
-      clauses: form.clauses,
-      responsible_name: form.responsible_name,
-      status: form.status,
-    }
-
-    const action = contract ? updateContract(contract.id, payload) : createContract(payload)
-    const { data, error } = await action
-
-    if (error) {
-      setMessage(error.message || 'Não foi possível salvar o contrato.')
-    } else {
-      setMessage('Contrato salvo com sucesso.')
-      onSaved?.(data)
-      onClose()
-    }
-
-    setLoading(false)
+    })
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 py-6">
-      <div className="w-full max-w-4xl overflow-y-auto rounded-[32px] border border-white/10 bg-slate-950 p-6 shadow-2xl shadow-black/50">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/75 px-3 py-6 sm:px-4">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[32px] border border-white/10 bg-slate-950 p-4 shadow-2xl shadow-black/60 sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm uppercase tracking-[0.35em] text-amber-300/80">Novo contrato</p>
-            <h3 className="mt-3 text-2xl font-semibold text-white">{contract ? 'Editar contrato' : 'Criar contrato'}</h3>
+            <h3 className="mt-2 text-2xl font-semibold text-white">Gerar contrato de locação</h3>
           </div>
-          <button type="button" onClick={onClose} className="rounded-full border border-white/10 px-3 py-2 text-sm text-slate-300">Fechar</button>
+          <button type="button" onClick={onClose} className="rounded-2xl border border-white/10 bg-slate-900 p-2 text-slate-200">
+            <X size={18} />
+          </button>
         </div>
 
-        <div className="mt-8 space-y-6">
-          <LegalReviewNotice />
-          <form onSubmit={handleSubmit} className="grid gap-6 md:grid-cols-2">
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-300">Locação</span>
-              <select value={form.location_id} onChange={(event) => setForm((current) => ({ ...current, location_id: event.target.value }))} className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" required>
-                <option value="">Selecione uma locação</option>
-                {locations.map((item) => <option key={item.id} value={item.id}>{item.vehicle_plate} — {item.tenant_name}</option>)}
-              </select>
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-300">Veículo</span>
-              <input value={form.vehicle_plate || ''} readOnly className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" />
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-300">Locatário</span>
-              <input value={form.tenant_name || ''} readOnly className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" />
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-300">Data início</span>
-              <input type="date" value={form.start_date || ''} onChange={(event) => setForm((current) => ({ ...current, start_date: event.target.value }))} className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" required />
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-300">Data término</span>
-              <input type="date" value={form.end_date || ''} onChange={(event) => setForm((current) => ({ ...current, end_date: event.target.value }))} className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" required />
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-300">Valor semanal</span>
-              <input type="number" min="0" step="0.01" value={form.weekly_rent || ''} onChange={(event) => setForm((current) => ({ ...current, weekly_rent: event.target.value }))} className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" required />
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-300">Caução</span>
-              <input type="number" min="0" step="0.01" value={form.deposit || ''} onChange={(event) => setForm((current) => ({ ...current, deposit: event.target.value }))} className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" required />
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-300">Quantidade de semanas</span>
-              <input type="number" min="1" value={form.weeks || ''} onChange={(event) => setForm((current) => ({ ...current, weeks: event.target.value }))} className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" />
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-300">Dia da cobrança</span>
-              <input type="number" min="1" max="31" value={form.billing_day || ''} onChange={(event) => setForm((current) => ({ ...current, billing_day: event.target.value }))} className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" />
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-300">Modelo financeiro</span>
-              <select value={form.finance_model || 'partners'} onChange={(event) => setForm((current) => ({ ...current, finance_model: event.target.value }))} className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none">
-                <option value="partners">Alternância entre sócios</option>
-                <option value="savings">Fundo do veículo</option>
-              </select>
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-300">Responsável</span>
-              <input value={form.responsible_name || ''} onChange={(event) => setForm((current) => ({ ...current, responsible_name: event.target.value }))} className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" />
-            </label>
-            <label className="space-y-2 md:col-span-2">
-              <span className="text-sm font-medium text-slate-300">Observações</span>
-              <textarea value={form.observations || ''} onChange={(event) => setForm((current) => ({ ...current, observations: event.target.value }))} rows="4" className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" />
-            </label>
-            <label className="space-y-2 md:col-span-2">
-              <span className="text-sm font-medium text-slate-300">Cláusulas adicionais</span>
-              <textarea value={form.clauses || ''} onChange={(event) => setForm((current) => ({ ...current, clauses: event.target.value }))} rows="6" className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" />
-            </label>
-            {message ? <p className="md:col-span-2 rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">{message}</p> : null}
-            <div className="md:col-span-2 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button type="button" onClick={onClose} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-slate-200">Cancelar</button>
-              <button type="submit" disabled={loading} className="rounded-2xl border border-amber-300/20 bg-amber-300/15 px-4 py-3 text-sm font-semibold text-amber-200">{loading ? 'Salvando…' : 'Salvar contrato'}</button>
+        <form className="mt-6 space-y-6" onSubmit={submit}>
+          {/* Passo 1: veículo */}
+          <div className="space-y-3">
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">1. Veículo</p>
+            <select
+              value={form.vehicle_id}
+              onChange={(event) => handleVehicleSelect(event.target.value)}
+              className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none"
+            >
+              <option value="">Selecione um veículo cadastrado</option>
+              {vehicles.map((vehicle) => (
+                <option key={vehicle.id} value={vehicle.id}>
+                  {vehicle.plate} — {vehicle.model} ({vehicle.status})
+                </option>
+              ))}
+            </select>
+            {errors.vehicle_id ? <span className="text-xs text-rose-300">{errors.vehicle_id}</span> : null}
+
+            {selectedVehicle ? (
+              <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-sm text-slate-300">
+                <p>{selectedVehicle.model} · {selectedVehicle.color} · {selectedVehicle.year || 'ano não informado'}</p>
+                <p className="mt-1 text-xs text-slate-500">Chassi: {selectedVehicle.chassis || 'não informado'} · Km atual: {selectedVehicle.current_km ?? 'não informado'}</p>
+              </div>
+            ) : null}
+          </div>
+
+          {/* Passo 2: distribuição do dinheiro */}
+          <div className="space-y-3">
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">2. Distribuição do aluguel</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className={`cursor-pointer rounded-2xl border p-4 text-sm ${form.finance_model === 'partners' ? 'border-amber-300/40 bg-amber-300/10 text-amber-100' : 'border-white/10 bg-slate-900/60 text-slate-300'}`}>
+                <input type="radio" name="finance_model" className="mr-2" checked={form.finance_model === 'partners'} onChange={() => handleChange('finance_model', 'partners')} />
+                Divisão entre sócios (Clei/Edson)
+              </label>
+              <label className={`cursor-pointer rounded-2xl border p-4 text-sm ${form.finance_model === 'savings' ? 'border-amber-300/40 bg-amber-300/10 text-amber-100' : 'border-white/10 bg-slate-900/60 text-slate-300'}`}>
+                <input type="radio" name="finance_model" className="mr-2" checked={form.finance_model === 'savings'} onChange={() => handleChange('finance_model', 'savings')} />
+                Formação de capital (fundo)
+              </label>
             </div>
-          </form>
-        </div>
+          </div>
+
+          {/* Passo 3: locatário */}
+          <div className="space-y-3">
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">3. Dados do locatário</p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="flex flex-col gap-2 text-sm text-slate-300">
+                <span>Nome completo</span>
+                <input value={form.tenant.full_name} onChange={(event) => handleTenantChange('full_name', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+                {errors.full_name ? <span className="text-xs text-rose-300">{errors.full_name}</span> : null}
+              </label>
+              <label className="flex flex-col gap-2 text-sm text-slate-300">
+                <span>CPF</span>
+                <input value={form.tenant.cpf} onChange={(event) => handleTenantChange('cpf', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" placeholder="000.000.000-00" />
+                {errors.cpf ? <span className="text-xs text-rose-300">{errors.cpf}</span> : null}
+              </label>
+              <label className="flex flex-col gap-2 text-sm text-slate-300">
+                <span>RG</span>
+                <input value={form.tenant.rg} onChange={(event) => handleTenantChange('rg', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+              </label>
+              <label className="flex flex-col gap-2 text-sm text-slate-300">
+                <span>Telefone / WhatsApp</span>
+                <input value={form.tenant.phone} onChange={(event) => handleTenantChange('phone', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+              </label>
+              <label className="flex flex-col gap-2 text-sm text-slate-300 md:col-span-2">
+                <span>Endereço</span>
+                <input value={form.tenant.address} onChange={(event) => handleTenantChange('address', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+              </label>
+              <label className="flex flex-col gap-2 text-sm text-slate-300">
+                <span>CNH (número)</span>
+                <input value={form.tenant.cnh_number} onChange={(event) => handleTenantChange('cnh_number', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+              </label>
+              <label className="flex flex-col gap-2 text-sm text-slate-300">
+                <span>CNH (validade)</span>
+                <input type="date" value={form.tenant.cnh_validity} onChange={(event) => handleTenantChange('cnh_validity', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+              </label>
+            </div>
+          </div>
+
+          {/* Passo 4: prazo e valores */}
+          <div className="space-y-3">
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">4. Prazo, valores e km inicial</p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="flex flex-col gap-2 text-sm text-slate-300">
+                <span>Data de início</span>
+                <input type="date" value={form.start_date} onChange={(event) => handleChange('start_date', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+                {errors.start_date ? <span className="text-xs text-rose-300">{errors.start_date}</span> : null}
+              </label>
+
+              <label className="flex flex-col gap-2 text-sm text-slate-300">
+                <span>Prazo do contrato</span>
+                <select
+                  value={form.duration_months}
+                  onChange={(event) => handleChange('duration_months', event.target.value === 'custom' ? 'custom' : Number(event.target.value))}
+                  className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none"
+                >
+                  {DURATION_PRESETS.map((preset) => (
+                    <option key={preset.label} value={preset.months}>{preset.label}</option>
+                  ))}
+                </select>
+                {errors.duration_months ? <span className="text-xs text-rose-300">{errors.duration_months}</span> : null}
+              </label>
+
+              {form.duration_months === 'custom' ? (
+                <label className="flex flex-col gap-2 text-sm text-slate-300">
+                  <span>Quantos meses?</span>
+                  <input type="number" min="1" value={customMonths} onChange={(event) => setCustomMonths(event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" placeholder="5" />
+                </label>
+              ) : null}
+
+              <label className="flex flex-col gap-2 text-sm text-slate-300">
+                <span>Data final (calculada — pode ajustar)</span>
+                <input type="date" value={form.end_date || computedEndDate || ''} onChange={(event) => handleChange('end_date', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+                <span className="text-xs text-slate-500">{computedWeeks} semana(s) de cobrança</span>
+              </label>
+
+              <label className="flex flex-col gap-2 text-sm text-slate-300">
+                <span>Valor semanal do aluguel</span>
+                <input type="number" min="0" step="0.01" value={form.weekly_rent} onChange={(event) => handleChange('weekly_rent', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+                {errors.weekly_rent ? <span className="text-xs text-rose-300">{errors.weekly_rent}</span> : null}
+              </label>
+
+              <label className="flex flex-col gap-2 text-sm text-slate-300">
+                <span>Caução</span>
+                <input type="number" min="0" step="0.01" value={form.deposit_amount} onChange={(event) => handleChange('deposit_amount', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+              </label>
+
+              <label className="flex flex-col gap-2 text-sm text-slate-300">
+                <span>Quilometragem inicial</span>
+                <input type="number" min="0" value={form.initial_km} onChange={(event) => handleChange('initial_km', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+              </label>
+            </div>
+
+            <label className="flex flex-col gap-2 text-sm text-slate-300">
+              <span>Observações</span>
+              <textarea rows="3" value={form.observations} onChange={(event) => handleChange('observations', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+            </label>
+          </div>
+
+          <div className="flex flex-col-reverse justify-end gap-3 border-t border-white/10 pt-4 sm:flex-row">
+            <button type="button" onClick={onClose} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-slate-200">
+              Cancelar
+            </button>
+            <button type="submit" disabled={loading} className="rounded-2xl border border-amber-300/20 bg-amber-300/15 px-4 py-3 text-sm font-semibold text-amber-200 disabled:opacity-60">
+              {loading ? 'Gerando...' : 'Gerar contrato (Rascunho)'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   )

@@ -7,23 +7,10 @@ function normalizePayload(payload) {
     plate: payload.plate?.trim().toUpperCase() ?? null,
     model: payload.model?.trim() ?? null,
     color: payload.color?.trim() ?? null,
-    tenant_name: payload.tenant_name?.trim() ?? null,
-    tenant_phone: payload.tenant_phone?.trim() ?? null,
-    weekly_rent: payload.weekly_rent === '' || payload.weekly_rent === null || payload.weekly_rent === undefined
+    year: payload.year === '' || payload.year === null || payload.year === undefined
       ? null
-      : Number(payload.weekly_rent),
-    finance_model: payload.finance_model?.trim() ?? null,
-    next_payment: payload.next_payment ? payload.next_payment : null,
-    next_destination: payload.finance_model === 'savings' ? 'Poupança' : (payload.next_destination?.trim() || null),
-    deposit_expected: payload.deposit_expected === '' || payload.deposit_expected === null || payload.deposit_expected === undefined
-      ? null
-      : Number(payload.deposit_expected),
-    deposit_received: payload.deposit_received === '' || payload.deposit_received === null || payload.deposit_received === undefined
-      ? null
-      : Number(payload.deposit_received),
-    deposit_expenses: payload.deposit_expenses === '' || payload.deposit_expenses === null || payload.deposit_expenses === undefined
-      ? null
-      : Number(payload.deposit_expenses),
+      : Number(payload.year),
+    chassis: payload.chassis?.trim().toUpperCase() ?? null,
     current_km: payload.current_km === '' || payload.current_km === null || payload.current_km === undefined
       ? null
       : Number(payload.current_km),
@@ -63,20 +50,16 @@ async function logVehicleAudit(action, entityId, beforeData, afterData) {
 }
 
 export async function listVehicles(filters = {}) {
-  const { search = '', status = '', financeModel = '' } = filters
+  const { search = '', status = '' } = filters
 
   let query = supabase.from('vehicles').select('*')
 
   if (search) {
-    query = query.or(`plate.ilike.%${search}%,model.ilike.%${search}%,tenant_name.ilike.%${search}%`)
+    query = query.or(`plate.ilike.%${search}%,model.ilike.%${search}%`)
   }
 
   if (status) {
     query = query.eq('status', status)
-  }
-
-  if (financeModel) {
-    query = query.eq('finance_model', financeModel)
   }
 
   const { data, error } = await query.order('created_at', { ascending: false })

@@ -10,7 +10,7 @@ export function calculateContractEndDate(startDate, weeks) {
     return null
   }
 
-  const parsedDate = new Date(startDate)
+  const parsedDate = new Date(`${startDate}T00:00:00`)
   if (Number.isNaN(parsedDate.getTime())) {
     return null
   }
@@ -81,4 +81,79 @@ export function cloneContractForRenewal(contract) {
       },
     ],
   }
+}
+
+const WEEK_LABELS = [
+  'Primeira', 'Segunda', 'Terceira', 'Quarta', 'Quinta', 'Sexta', 'Sétima',
+  'Oitava', 'Nona', 'Décima', 'Décima primeira', 'Décima segunda', 'Décima terceira',
+  'Décima quarta', 'Décima quinta', 'Décima sexta', 'Décima sétima', 'Décima oitava',
+  'Décima nona', 'Vigésima',
+]
+
+function ordinalWeekLabel(index) {
+  return WEEK_LABELS[index] || `${index + 1}ª`
+}
+
+/**
+ * Gera o cronograma semana a semana de um contrato, no mesmo formato usado
+ * no modelo de contrato em papel (1ª semana no ato da assinatura, depois uma
+ * data por semana até o fim do prazo).
+ */
+export function generatePaymentSchedule(startDate, totalWeeks, weeklyRent) {
+  if (!startDate || !totalWeeks) {
+    return []
+  }
+
+  const schedule = []
+  const baseDate = new Date(`${startDate}T00:00:00`)
+
+  for (let index = 0; index < totalWeeks; index += 1) {
+    const dueDate = new Date(baseDate)
+    dueDate.setDate(dueDate.getDate() + index * 7)
+
+    schedule.push({
+      week: index + 1,
+      label: `${ordinalWeekLabel(index)} semana`,
+      due_date: dueDate.toISOString().slice(0, 10),
+      amount: Number(weeklyRent || 0),
+    })
+  }
+
+  return schedule
+}
+
+/**
+ * Deriva o número de semanas de um contrato a partir de start/end date,
+ * arredondando pra cima (contrato de 3 meses ~= 13 semanas, não 12,86).
+ */
+export function deriveWeeksFromDates(startDate, endDate) {
+  if (!startDate || !endDate) {
+    return 0
+  }
+
+  const start = new Date(`${startDate}T00:00:00`)
+  const end = new Date(`${endDate}T00:00:00`)
+  const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24))
+
+  if (diffDays <= 0) {
+    return 0
+  }
+
+  return Math.ceil(diffDays / 7)
+}
+
+/**
+ * Soma N meses a uma data (usado quando o prazo do contrato é escolhido em
+ * meses, ex: 3, 5, 6, 12). O resultado ainda pode ser ajustado manualmente
+ * pelo usuário — na prática o contrato real pode fechar 1-2 dias antes/depois
+ * do mês "redondo", pra bater com o dia da semana do pagamento.
+ */
+export function addMonthsToDate(startDate, months) {
+  if (!startDate || !months) {
+    return null
+  }
+
+  const date = new Date(`${startDate}T00:00:00`)
+  date.setMonth(date.getMonth() + Number(months))
+  return date.toISOString().slice(0, 10)
 }

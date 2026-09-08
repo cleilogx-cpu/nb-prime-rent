@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, CarFront, Search } from 'lucide-react'
-import { listActiveLocations } from '../services/locationsService.js'
+import { endLocation, listActiveLocations } from '../services/locationsService.js'
 import { formatCurrency, formatDate } from '../services/locationLogic.js'
 import LoadingScreen from '../components/LoadingScreen.jsx'
+import EndLocationDialog from '../components/EndLocationDialog.jsx'
+import Toast from '../components/Toast.jsx'
 
 const FINANCE_LABELS = { partners: 'Sócios', savings: 'Fundo' }
 
-function LocationCard({ location, onView }) {
+function LocationCard({ location, onView, onEnd }) {
   const vehicle = location.vehicles
   const tenant = location.tenants
 
@@ -57,6 +59,9 @@ function LocationCard({ location, onView }) {
         <button type="button" onClick={() => onView(location)} className="rounded-2xl border border-white/10 bg-slate-950 px-3 py-2 text-sm font-medium text-slate-200">
           Ver detalhes
         </button>
+        <button type="button" onClick={() => onEnd(location)} className="rounded-2xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-sm font-medium text-rose-200">
+          Encerrar locação
+        </button>
       </div>
     </article>
   )
@@ -69,6 +74,9 @@ export default function Locations() {
   const [search, setSearch] = useState('')
   const [selectedLocation, setSelectedLocation] = useState(null)
   const [viewOpen, setViewOpen] = useState(false)
+  const [endTarget, setEndTarget] = useState(null)
+  const [endLoading, setEndLoading] = useState(false)
+  const [toast, setToast] = useState({ message: '', type: 'success' })
 
   const loadData = async () => {
     setLoading(true)
@@ -94,12 +102,33 @@ export default function Locations() {
     setViewOpen(true)
   }
 
+  const handleEndConfirm = async (payload) => {
+    if (!endTarget) {
+      return
+    }
+
+    setEndLoading(true)
+    const { error } = await endLocation(endTarget.id, payload)
+    setEndLoading(false)
+
+    if (error) {
+      setToast({ message: error.message || 'Não foi possível encerrar a locação.', type: 'error' })
+      return
+    }
+
+    setToast({ message: 'Locação encerrada! O veículo já está disponível de novo.', type: 'success' })
+    setEndTarget(null)
+    await loadData()
+  }
+
   if (loading) {
     return <LoadingScreen />
   }
 
   return (
     <div className="space-y-8">
+      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
+
       <div className="rounded-[32px] border border-white/10 bg-slate-900/80 p-6 shadow-xl shadow-black/30 sm:p-8">
         <div>
           <p className="text-sm uppercase tracking-[0.35em] text-amber-300/80">Locações</p>
@@ -146,7 +175,7 @@ export default function Locations() {
       {!error && locations.length > 0 ? (
         <div className="grid gap-5 xl:grid-cols-2">
           {locations.map((location) => (
-            <LocationCard key={location.id} location={location} onView={openView} />
+            <LocationCard key={location.id} location={location} onView={openView} onEnd={setEndTarget} />
           ))}
         </div>
       ) : null}
@@ -213,9 +242,30 @@ export default function Locations() {
                 </div>
               </div>
             </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setEndTarget(selectedLocation)
+                  setViewOpen(false)
+                }}
+                className="rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-200"
+              >
+                Encerrar locação
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
+
+      <EndLocationDialog
+        open={Boolean(endTarget)}
+        location={endTarget}
+        loading={endLoading}
+        onClose={() => setEndTarget(null)}
+        onConfirm={handleEndConfirm}
+      />
     </div>
   )
 }

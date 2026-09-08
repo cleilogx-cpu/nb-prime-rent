@@ -8,6 +8,7 @@ import Locations from './pages/Locations.jsx'
 import Payments from './pages/Payments.jsx'
 import Contracts from './pages/Contracts.jsx'
 import Expenses from './pages/Expenses.jsx'
+import Historico from './pages/Historico.jsx'
 import PlaceholderPage from './pages/PlaceholderPage.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 
@@ -44,10 +45,7 @@ function App() {
               path="manutencao"
               element={<PlaceholderPage title="Manutenção" description="Acompanhe revisões e alertas de quilometragem." />}
             />
-            <Route
-              path="historico"
-              element={<PlaceholderPage title="Histórico" description="Acesse registros de operações e relatórios de desempenho." />}
-            />
+            <Route path="historico" element={<Historico />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

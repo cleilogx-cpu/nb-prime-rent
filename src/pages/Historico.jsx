@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Archive } from 'lucide-react'
 import { listLocationHistory } from '../services/locationsService.js'
-import { formatCurrency, formatDate } from '../services/locationLogic.js'
+import { listPayments } from '../services/paymentsService.js'
+import { listExpenses } from '../services/expensesService.js'
+import { formatCurrency, formatDate, computeLocationFinancials } from '../services/locationLogic.js'
 import { PERIODICITY_LABELS } from '../lib/constants.js'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 
@@ -24,9 +26,10 @@ function ratingBadgeStyle(rating) {
   return 'border-white/10 bg-slate-900 text-slate-400'
 }
 
-function HistoryCard({ location }) {
+function HistoryCard({ location, payments, expenses }) {
   const vehicle = location.vehicles
   const tenant = location.tenants
+  const { totalReceived, totalExpenses } = computeLocationFinancials(location, payments, expenses)
 
   return (
     <article className="rounded-[30px] border border-white/10 bg-slate-900/80 p-6 shadow-xl shadow-black/30">
@@ -79,6 +82,17 @@ function HistoryCard({ location }) {
         </div>
       </div>
 
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4">
+          <p className="text-xs uppercase tracking-[0.3em] text-emerald-300/80">Total recebido</p>
+          <p className="mt-2 text-lg font-semibold text-emerald-100">{formatCurrency(totalReceived)}</p>
+        </div>
+        <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-4">
+          <p className="text-xs uppercase tracking-[0.3em] text-rose-300/80">Total de gastos</p>
+          <p className="mt-2 text-lg font-semibold text-rose-100">{formatCurrency(totalExpenses)}</p>
+        </div>
+      </div>
+
       {location.closing_notes ? (
         <div className="mt-6 rounded-2xl border border-white/10 bg-slate-950/70 p-4">
           <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Observação do encerramento</p>
@@ -91,13 +105,19 @@ function HistoryCard({ location }) {
 
 export default function Historico() {
   const [locations, setLocations] = useState([])
+  const [payments, setPayments] = useState([])
+  const [expenses, setExpenses] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     const load = async () => {
       setLoading(true)
-      const { data, error: fetchError } = await listLocationHistory()
+      const [{ data, error: fetchError }, { data: paymentsData }, { data: expensesData }] = await Promise.all([
+        listLocationHistory(),
+        listPayments(),
+        listExpenses(),
+      ])
 
       if (fetchError) {
         setError(fetchError.message || 'Falha ao carregar o histórico.')
@@ -105,6 +125,8 @@ export default function Historico() {
         setError(null)
         setLocations(data ?? [])
       }
+      setPayments(paymentsData ?? [])
+      setExpenses(expensesData ?? [])
       setLoading(false)
     }
 
@@ -147,7 +169,7 @@ export default function Historico() {
       {!error && locations.length > 0 ? (
         <div className="grid gap-5 xl:grid-cols-2">
           {locations.map((location) => (
-            <HistoryCard key={location.id} location={location} />
+            <HistoryCard key={location.id} location={location} payments={payments} expenses={expenses} />
           ))}
         </div>
       ) : null}

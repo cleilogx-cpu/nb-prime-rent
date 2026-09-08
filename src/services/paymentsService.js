@@ -195,9 +195,12 @@ export async function listPayments(filters = {}) {
     destination = '',
   } = filters
 
+  // `contracts(periodicity)` só serve pra mostrar "Aluguel — Semanal/Mensal"
+  // no card -- não afeta nada financeiro (join opcional/nullable: um
+  // recebimento antigo sem contract_id simplesmente não mostra periodicidade).
   let query = supabase
     .from(PAYMENT_TABLE)
-    .select('*')
+    .select('*, contracts(periodicity)')
     .order('payment_date', { ascending: false })
     .order('created_at', { ascending: false })
 

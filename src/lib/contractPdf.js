@@ -8,9 +8,17 @@ const PAGE_HEIGHT = 297
 const BOTTOM_LIMIT = PAGE_HEIGHT - 20
 
 /**
- * Renderiza as seções em um PDF (jsPDF), com quebra de página automática.
+ * Renderiza as seções em um PDF (jsPDF), com quebra de página automática,
+ * rodapé com numeração de página e listas com recuo de verdade (a
+ * continuação de um item longo alinha embaixo do texto, não do número/•).
  * Retorna o objeto jsPDF pronto — quem chamar decide se salva, baixa ou
  * gera um blob/URL pra anexar em outro lugar.
+ *
+ * Limitação aceita: jsPDF 2.5.2 não tem justificação de texto nativa (só
+ * align left/center/right), então os parágrafos ficam com a margem direita
+ * "serrilhada" -- diferente do .docx, que usa AlignmentType.JUSTIFIED. Não é
+ * bug, é o teto do que a lib faz; o Word continua sendo o formato editável
+ * de verdade pro cliente corrigir algo rapidinho.
  */
 export function renderContractPdf(sections) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
@@ -69,8 +77,21 @@ export function renderContractPdf(sections) {
       case 'list':
         section.items.forEach((item, index) => {
           const prefix = section.ordered ? `${index + 1}. ` : '• '
-          const wrapped = doc.splitTextToSize(`${prefix}${item}`, CONTENT_WIDTH - 4)
-          writeLines(wrapped, { size: 10, style: 'normal', gap: 5 })
+          doc.setFont('helvetica', 'normal')
+          doc.setFontSize(10)
+          const indent = (doc.getStringUnitWidth(prefix) * 10) / doc.internal.scaleFactor + 1
+          const wrapped = doc.splitTextToSize(item, CONTENT_WIDTH - indent)
+
+          ensureSpace(5)
+          doc.text(prefix, MARGIN, y)
+          doc.text(wrapped[0] || '', MARGIN + indent, y)
+          y += 5
+
+          for (let lineIndex = 1; lineIndex < wrapped.length; lineIndex += 1) {
+            ensureSpace(5)
+            doc.text(wrapped[lineIndex], MARGIN + indent, y)
+            y += 5
+          }
         })
         y += 1
         break
@@ -97,6 +118,18 @@ export function renderContractPdf(sections) {
         break
     }
   })
+
+  // Rodapé com numeração de página -- só dá pra saber o total de páginas
+  // depois que todo o conteúdo já foi desenhado.
+  const totalPages = doc.internal.getNumberOfPages()
+  for (let page = 1; page <= totalPages; page += 1) {
+    doc.setPage(page)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(140)
+    doc.text(`Página ${page} de ${totalPages}`, PAGE_WIDTH / 2, PAGE_HEIGHT - 10, { align: 'center' })
+    doc.setTextColor(0)
+  }
 
   return doc
 }

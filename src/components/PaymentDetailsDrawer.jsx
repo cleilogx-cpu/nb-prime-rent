@@ -1,32 +1,7 @@
 import { X } from 'lucide-react'
 import PaymentDestinationBadge from './PaymentDestinationBadge.jsx'
 import PaymentStatusBadge from './PaymentStatusBadge.jsx'
-
-function formatCurrency(value) {
-  const numericValue = Number(value)
-  if (Number.isNaN(numericValue)) {
-    return 'R$ 0,00'
-  }
-
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    minimumFractionDigits: 2,
-  }).format(numericValue)
-}
-
-function formatDate(value) {
-  if (!value) {
-    return 'Não informado'
-  }
-
-  const parsedDate = new Date(`${value}T00:00:00`)
-  if (Number.isNaN(parsedDate.getTime())) {
-    return value
-  }
-
-  return parsedDate.toLocaleDateString('pt-BR')
-}
+import { formatCurrency, formatDate } from '../lib/format.js'
 
 export default function PaymentDetailsDrawer({ open, payment, onClose }) {
   if (!open || !payment) {

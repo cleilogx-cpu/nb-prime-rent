@@ -1,4 +1,5 @@
 import { PencilLine, Trash2 } from 'lucide-react'
+import { getVehicleDisplayStatus, isVehicleInMaintenance, isVehicleRented } from '../lib/vehicleStatus.js'
 
 function formatKm(value) {
   if (value === null || value === undefined || value === '') {
@@ -8,22 +9,23 @@ function formatKm(value) {
   return `${Number(value).toLocaleString('pt-BR')} km`
 }
 
-function getStatusStyle(status) {
-  const normalizedStatus = String(status ?? '').toLowerCase()
+function getStatusStyle(vehicle) {
+  const rented = isVehicleRented(vehicle)
+  const maintenance = isVehicleInMaintenance(vehicle)
 
-  if (normalizedStatus === 'alugado' || normalizedStatus === 'rented') {
+  if (rented && maintenance) {
+    return 'border-amber-400/20 bg-amber-500/10 text-amber-300'
+  }
+
+  if (rented) {
     return 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300'
   }
 
-  if (normalizedStatus === 'disponível' || normalizedStatus === 'available') {
-    return 'border-sky-400/20 bg-sky-500/10 text-sky-300'
-  }
-
-  if (normalizedStatus === 'manutenção' || normalizedStatus === 'maintenance') {
+  if (maintenance) {
     return 'border-rose-400/20 bg-rose-500/10 text-rose-300'
   }
 
-  return 'border-amber-300/20 bg-amber-300/10 text-amber-300'
+  return 'border-sky-400/20 bg-sky-500/10 text-sky-300'
 }
 
 export default function VehicleCard({ vehicle, onEdit, onDelete }) {
@@ -45,9 +47,9 @@ export default function VehicleCard({ vehicle, onEdit, onDelete }) {
           {vehicle.chassis ? <p className="mt-1 text-xs text-slate-500">Chassi: {vehicle.chassis}</p> : null}
         </div>
         <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] ${getStatusStyle(vehicle.status)}`}
+          className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] ${getStatusStyle(vehicle)}`}
         >
-          {vehicle.status || 'Sem status'}
+          {getVehicleDisplayStatus(vehicle)}
         </span>
       </div>
 

@@ -1,19 +1,7 @@
 import { CalendarDays, CreditCard, Wallet2 } from 'lucide-react'
 import PaymentDestinationBadge from './PaymentDestinationBadge.jsx'
 import PaymentStatusBadge from './PaymentStatusBadge.jsx'
-
-function formatCurrency(value) {
-  const numericValue = Number(value)
-  if (Number.isNaN(numericValue)) {
-    return 'R$ 0,00'
-  }
-
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    minimumFractionDigits: 2,
-  }).format(numericValue)
-}
+import { formatCurrency, formatDate } from '../lib/format.js'
 
 function getVehiclePlate(payment, metadata) {
   if (payment.vehicle_plate) {
@@ -28,19 +16,6 @@ function getVehiclePlate(payment, metadata) {
   const plate = observation.split(' - ')[0]?.trim()
 
   return plate || 'Veículo não informado'
-}
-
-function formatDate(value) {
-  if (!value) {
-    return 'Não informado'
-  }
-
-  const parsedDate = new Date(`${value}T00:00:00`)
-  if (Number.isNaN(parsedDate.getTime())) {
-    return value
-  }
-
-  return parsedDate.toLocaleDateString('pt-BR')
 }
 
 export default function PaymentCard({ payment, onView, onCancel }) {

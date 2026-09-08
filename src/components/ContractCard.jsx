@@ -1,16 +1,5 @@
 import { FileText, ShieldCheck } from 'lucide-react'
-
-function formatDate(value) {
-  if (!value) return 'Não definida'
-  const date = new Date(`${value}T00:00:00`)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleDateString('pt-BR')
-}
-
-function formatBRL(value) {
-  if (value === null || value === undefined || value === '') return 'Não informado'
-  return `R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
+import { formatCurrency, formatDate } from '../lib/format.js'
 
 function getStatusStyle(status) {
   const normalized = String(status ?? '').toLowerCase()
@@ -58,7 +47,7 @@ export default function ContractCard({ contract, onOpenDetails }) {
         </div>
         <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-3 text-sm text-slate-300">
           <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Valor semanal</p>
-          <p className="mt-1 text-white">{formatBRL(contract.weekly_rent)}</p>
+          <p className="mt-1 text-white">{formatCurrency(contract.weekly_rent)}</p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-3 text-sm text-slate-300">
           <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500 flex items-center gap-1"><ShieldCheck size={12} /> Distribuição</p>

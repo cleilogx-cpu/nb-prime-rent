@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
+import { getVehicleDisplayStatus } from '../lib/vehicleStatus.js'
 
 const initialForm = {
   plate: '',
@@ -9,7 +10,7 @@ const initialForm = {
   chassis: '',
   current_km: '',
   next_review_km: '',
-  status: 'Disponível',
+  maintenance: false,
 }
 
 export default function VehicleForm({ open, onClose, onSubmit, vehicle, loading }) {
@@ -18,11 +19,17 @@ export default function VehicleForm({ open, onClose, onSubmit, vehicle, loading 
 
   useEffect(() => {
     if (vehicle) {
+      // `status` do veículo nunca entra no formulário — é controlado só pelo
+      // contrato (signContract/endLocation). Só a condição de manutenção é
+      // editável aqui, de forma independente.
+      const vehicleWithoutStatus = { ...vehicle }
+      delete vehicleWithoutStatus.status
       setForm({
         ...initialForm,
-        ...vehicle,
+        ...vehicleWithoutStatus,
         current_km: vehicle.current_km ?? '',
         next_review_km: vehicle.next_review_km ?? '',
+        maintenance: Boolean(vehicle.maintenance),
       })
     } else {
       setForm(initialForm)
@@ -48,7 +55,6 @@ export default function VehicleForm({ open, onClose, onSubmit, vehicle, loading 
     if (!form.plate?.trim()) nextErrors.plate = 'A placa é obrigatória.'
     if (!form.model?.trim()) nextErrors.model = 'O modelo é obrigatório.'
     if (!form.color?.trim()) nextErrors.color = 'A cor é obrigatória.'
-    if (!form.status?.trim()) nextErrors.status = 'O status é obrigatório.'
     if (form.next_review_km === '' || form.next_review_km === null || form.next_review_km === undefined) {
       nextErrors.next_review_km = 'A próxima revisão (km) é obrigatória.'
     }
@@ -164,19 +170,25 @@ export default function VehicleForm({ open, onClose, onSubmit, vehicle, loading 
               {errors.next_review_km ? <span className="text-xs text-rose-300">{errors.next_review_km}</span> : null}
             </label>
 
-            <label className="flex flex-col gap-2 text-sm text-slate-300">
-              <span>Status</span>
-              <select
-                value={form.status}
-                onChange={(event) => handleChange('status', event.target.value)}
-                className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none"
-              >
-                <option value="Disponível">Disponível</option>
-                <option value="Alugado">Alugado</option>
-                <option value="Manutenção">Manutenção</option>
-                <option value="Inativo">Inativo</option>
-              </select>
-              {errors.status ? <span className="text-xs text-rose-300">{errors.status}</span> : null}
+            <label className="flex flex-col justify-center gap-2 text-sm text-slate-300">
+              <span>Condição operacional</span>
+              <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white">
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.maintenance)}
+                  onChange={(event) => handleChange('maintenance', event.target.checked)}
+                  className="h-4 w-4 rounded border-white/20 bg-slate-800 accent-amber-400"
+                />
+                Em manutenção?
+              </label>
+              {vehicle ? (
+                <span className="text-xs text-slate-500">
+                  Status atual: <span className="text-slate-300">{getVehicleDisplayStatus(vehicle)}</span> — "Alugado" só muda
+                  automaticamente pelo contrato, nunca aqui.
+                </span>
+              ) : (
+                <span className="text-xs text-slate-500">Todo veículo novo entra como "Disponível" (ou "Manutenção" se marcar acima).</span>
+              )}
             </label>
           </div>
 

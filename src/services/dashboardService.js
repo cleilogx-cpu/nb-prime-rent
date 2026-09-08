@@ -1,14 +1,27 @@
 import { supabase } from '../lib/supabaseClient.js'
+import { summarizeVehicleStatuses } from '../lib/vehicleStatus.js'
 
 export async function fetchDashboardData() {
+  // Lista curta (8) só pra exibir na seção "Veículos cadastrados". As
+  // contagens do resumo (alugados/disponíveis/manutenção) usam uma consulta
+  // separada sem limite — contar em cima da lista de 8 já foi um bug quando
+  // a frota crescer além disso, mesmo passando despercebido com só 3 veículos.
   const { data: vehicles, error: vehiclesError } = await supabase
     .from('vehicles')
-    .select('id,plate,model,color,current_km,status')
+    .select('id,plate,model,color,current_km,status,maintenance')
     .order('created_at', { ascending: false })
     .limit(8)
 
   if (vehiclesError) {
     return { data: null, error: vehiclesError }
+  }
+
+  const { data: allVehicles, error: allVehiclesError } = await supabase
+    .from('vehicles')
+    .select('status,maintenance')
+
+  if (allVehiclesError) {
+    return { data: null, error: allVehiclesError }
   }
 
   // Observação: o Dashboard somava da tabela antiga `payments` (que já não
@@ -55,20 +68,10 @@ export async function fetchDashboardData() {
   // ser implementado de verdade.
   const latePayments = 0
 
-  const rentedCount = (vehicles ?? []).filter((vehicle) => {
-    const status = String(vehicle.status ?? '').toLowerCase()
-    return status && status !== 'disponível' && status !== 'available'
-  }).length
-
-  const availableCount = (vehicles ?? []).filter((vehicle) => {
-    const status = String(vehicle.status ?? '').toLowerCase()
-    return status === 'disponível' || status === 'available'
-  }).length
-
   // Observação: os contadores por sócio/fundo saíram daqui porque o campo
   // finance_model deixou de existir em `vehicles`. Isso volta quando o
   // dashboard passar a ler de `contracts`/`rentals` (próxima fase).
-  const maintenanceCount = (vehicles ?? []).filter((vehicle) => String(vehicle.status ?? '').toLowerCase() === 'manutenção').length
+  const { rentedCount, availableCount, maintenanceCount } = summarizeVehicleStatuses(allVehicles)
 
   return {
     data: {

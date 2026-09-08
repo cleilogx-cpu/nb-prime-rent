@@ -1,5 +1,6 @@
 import { generatePaymentSchedule } from './contractLogic.js'
-import { formatCurrency, formatDate } from './format.js'
+import { formatCurrency, formatDate, formatTenantAddress } from './format.js'
+import { PERIODICITY } from './constants.js'
 
 // Dados fixos da locadora (empresa). O LOCADOR que assina é sempre o mesmo,
 // independente do tipo de pagamento (sócios/fundo) escolhido no contrato.
@@ -20,6 +21,16 @@ const PIX = {
 
 const FRANQUIA_SEGURO = 8845
 
+// Texto usado nas cláusulas 3ª/4ª conforme a periodicidade escolhida no
+// contrato. "weekly" preserva exatamente o texto que já existia (era a
+// única periodicidade suportada antes desta refatoração).
+const PERIODICITY_TEXT = {
+  [PERIODICITY.DAILY]: { unit: 'dia', cadence: 'todo dia' },
+  [PERIODICITY.WEEKLY]: { unit: 'semana', cadence: 'toda semana' },
+  [PERIODICITY.BIWEEKLY]: { unit: 'quinzena', cadence: 'a cada quinzena' },
+  [PERIODICITY.MONTHLY]: { unit: 'mês', cadence: 'todo mês' },
+}
+
 function numeroPorExtenso(n) {
   const nomes = ['zero', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove', 'dez',
     'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove', 'vinte']
@@ -34,11 +45,11 @@ export function buildContractSections(contract) {
   const tenant = contract.tenants || {}
   const vehicle = contract.vehicles || {}
   const weeks = contract.weeks || 0
-  const weeklyRent = Number(contract.weekly_rent || 0)
-  const dailyRent = weeks ? weeklyRent / 7 : 0
-  const totalValue = weeklyRent * weeks
+  const periodicity = contract.periodicity || PERIODICITY.WEEKLY
+  const periodicityText = PERIODICITY_TEXT[periodicity] || PERIODICITY_TEXT[PERIODICITY.WEEKLY]
+  const paymentAmount = Number(contract.payment_amount || 0)
   const deposit = Number(contract.deposit_amount || 0)
-  const schedule = generatePaymentSchedule(contract.start_date, weeks, weeklyRent)
+  const schedule = generatePaymentSchedule(contract.start_date, contract.end_date, periodicity, paymentAmount)
 
   const sections = []
 
@@ -56,7 +67,7 @@ export function buildContractSections(contract) {
   })
   sections.push({
     type: 'paragraph',
-    text: `LOCATÁRIO: ${(tenant.full_name || 'NÃO INFORMADO').toUpperCase()}, CPF nº ${tenant.cpf || 'não informado'}, Endereço ${tenant.address || 'não informado'}.`,
+    text: `LOCATÁRIO: ${(tenant.full_name || 'NÃO INFORMADO').toUpperCase()}, CPF nº ${tenant.cpf || 'não informado'}, Endereço ${formatTenantAddress(tenant)}.`,
   })
 
   sections.push({ type: 'subheading', text: '2. DO OBJETO' })
@@ -84,7 +95,9 @@ export function buildContractSections(contract) {
   sections.push({ type: 'subheading', text: '4. DOS VALORES E FORMA DE PAGAMENTO' })
   sections.push({
     type: 'paragraph',
-    text: `CLÁUSULA 3ª — O valor da locação é de ${formatCurrency(dailyRent)} por dia, totalizando ${formatCurrency(weeklyRent)} a ser pago semanalmente, conforme cronograma abaixo:`,
+    text: periodicity === PERIODICITY.WEEKLY
+      ? `CLÁUSULA 3ª — O valor da locação é de ${formatCurrency(paymentAmount / 7)} por dia, totalizando ${formatCurrency(paymentAmount)} a ser pago semanalmente, conforme cronograma abaixo:`
+      : `CLÁUSULA 3ª — O valor da locação é de ${formatCurrency(paymentAmount)} por ${periodicityText.unit}, conforme cronograma abaixo:`,
   })
   sections.push({
     type: 'list',
@@ -92,7 +105,7 @@ export function buildContractSections(contract) {
   })
   sections.push({
     type: 'paragraph',
-    text: `CLÁUSULA 4ª — O pagamento deverá ser realizado toda semana, conforme cronograma, via PIX na chave ${PIX.chave}, Ag ${PIX.agencia}, Conta ${PIX.conta}, ${PIX.banco}, em nome de ${PIX.titular}.`,
+    text: `CLÁUSULA 4ª — O pagamento deverá ser realizado ${periodicityText.cadence}, conforme cronograma, via PIX na chave ${PIX.chave}, Ag ${PIX.agencia}, Conta ${PIX.conta}, ${PIX.banco}, em nome de ${PIX.titular}.`,
   })
   sections.push({
     type: 'paragraph',

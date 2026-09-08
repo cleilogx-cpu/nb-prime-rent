@@ -58,7 +58,7 @@ const proposedBeneficiary =
       vehicle_id: location.vehicle_id,
       finance_model: financeModel,
       destination: financeModel === 'savings' ? 'Fundo do veículo' : (proposedBeneficiary || ''),
-      amount: location.weekly_rent || current.amount,
+      amount: location.payment_amount || current.amount,
       notes: `${location.vehicles?.plate || ''} - ${location.tenants?.full_name || ''}`,
     }))
   }

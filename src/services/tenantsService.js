@@ -2,6 +2,11 @@ import { supabase } from '../lib/supabaseClient.js'
 
 const TABLE = 'tenants'
 
+// `address` (campo único, livre) é mantido só como legado de exibição pros
+// locatários cadastrados antes desta separação — nunca mais é preenchido a
+// partir daqui. Contratos novos sempre gravam os 7 campos estruturados;
+// quem lê o endereço pra exibir/imprimir usa formatTenantAddress
+// (src/lib/format.js), que cai pro campo antigo só se os novos vierem vazios.
 function normalizeTenantPayload(payload) {
   return {
     full_name: payload.full_name?.trim() ?? null,
@@ -10,7 +15,13 @@ function normalizeTenantPayload(payload) {
     phone: payload.phone?.trim() ?? null,
     whatsapp: payload.whatsapp?.trim() || payload.phone?.trim() || null,
     email: payload.email?.trim() ?? null,
-    address: payload.address?.trim() ?? null,
+    address_street: payload.address_street?.trim() ?? null,
+    address_number: payload.address_number?.trim() ?? null,
+    address_neighborhood: payload.address_neighborhood?.trim() ?? null,
+    address_zip: payload.address_zip?.trim() ?? null,
+    address_complement: payload.address_complement?.trim() ?? null,
+    address_city: payload.address_city?.trim() ?? null,
+    address_state: payload.address_state?.trim().toUpperCase() ?? null,
     cnh_number: payload.cnh_number?.trim() ?? null,
     cnh_validity: payload.cnh_validity || null,
     pix_key: payload.pix_key?.trim() ?? null,

@@ -28,3 +28,19 @@ export const RENTAL_STATUS = {
   ENCERRADA: 'Encerrada',
   CANCELADA: 'Cancelada',
 }
+
+// Periodicidade de cobrança do contrato (e da locação, que herda do
+// contrato na assinatura). Substitui o "semanal" fixo de antes.
+export const PERIODICITY = {
+  DAILY: 'daily',
+  WEEKLY: 'weekly',
+  BIWEEKLY: 'biweekly',
+  MONTHLY: 'monthly',
+}
+
+export const PERIODICITY_LABELS = {
+  [PERIODICITY.DAILY]: 'Diária',
+  [PERIODICITY.WEEKLY]: 'Semanal',
+  [PERIODICITY.BIWEEKLY]: 'Quinzenal',
+  [PERIODICITY.MONTHLY]: 'Mensal',
+}

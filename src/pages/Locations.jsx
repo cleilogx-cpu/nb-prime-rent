@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, CarFront, Search } from 'lucide-react'
 import { endLocation, listActiveLocations } from '../services/locationsService.js'
 import { formatCurrency, formatDate } from '../services/locationLogic.js'
+import { PERIODICITY_LABELS } from '../lib/constants.js'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 import EndLocationDialog from '../components/EndLocationDialog.jsx'
 import Toast from '../components/Toast.jsx'
@@ -41,8 +42,8 @@ function LocationCard({ location, onView, onEnd }) {
         </div>
         <div className="space-y-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Valor semanal</p>
-            <p className="mt-2 text-base font-medium text-white">{formatCurrency(location.weekly_rent)}</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Valor ({PERIODICITY_LABELS[location.periodicity] || 'Semanal'})</p>
+            <p className="mt-2 text-base font-medium text-white">{formatCurrency(location.payment_amount)}</p>
           </div>
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Km inicial</p>
@@ -224,8 +225,8 @@ export default function Locations() {
                 <p className="text-sm uppercase tracking-[0.35em] text-slate-500">Valores e datas</p>
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Valor semanal</p>
-                    <p className="mt-2 text-base font-medium text-white">{formatCurrency(selectedLocation.weekly_rent)}</p>
+                    <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Valor ({PERIODICITY_LABELS[selectedLocation.periodicity] || 'Semanal'})</p>
+                    <p className="mt-2 text-base font-medium text-white">{formatCurrency(selectedLocation.payment_amount)}</p>
                   </div>
                   <div>
                     <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Km inicial</p>

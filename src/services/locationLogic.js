@@ -3,7 +3,7 @@ export function calculateNextPaymentDate(startDate) {
     return null
   }
 
-  const parsedDate = new Date(startDate)
+  const parsedDate = new Date(`${startDate}T00:00:00`)
   if (Number.isNaN(parsedDate.getTime())) {
     return null
   }
@@ -48,7 +48,7 @@ export function formatDate(value) {
     return 'Não informado'
   }
 
-  const parsedDate = new Date(value)
+  const parsedDate = new Date(`${value}T00:00:00`)
   if (Number.isNaN(parsedDate.getTime())) {
     return value
   }

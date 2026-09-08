@@ -28,7 +28,6 @@ export default function Vehicles() {
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  const [financeFilter, setFinanceFilter] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [editingVehicle, setEditingVehicle] = useState(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -43,7 +42,6 @@ export default function Vehicles() {
     const { data, error: fetchError } = await listVehicles({
       search,
       status: statusFilter,
-      financeModel: financeFilter,
     })
 
     if (fetchError) {
@@ -58,7 +56,7 @@ export default function Vehicles() {
 
   useEffect(() => {
     loadVehicles()
-  }, [search, statusFilter, financeFilter])
+  }, [search, statusFilter])
 
   const handleOpenCreate = () => {
     setEditingVehicle(null)
@@ -121,8 +119,8 @@ export default function Vehicles() {
     return status === 'disponível' || status === 'available'
   }).length
 
-  const partnersCount = vehicles.filter((vehicle) => vehicle.finance_model === 'partners').length
-  const savingsCount = vehicles.filter((vehicle) => vehicle.finance_model === 'savings').length
+  const maintenanceCount = vehicles.filter((vehicle) => String(vehicle.status ?? '').toLowerCase() === 'manutenção').length
+  const totalCount = vehicles.length
 
   if (loading) {
     return <LoadingScreen />
@@ -151,8 +149,8 @@ export default function Vehicles() {
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <SummaryCard label="Veículos alugados" value={rentedCount} icon={<CarFront size={18} />} />
           <SummaryCard label="Veículos disponíveis" value={availableCount} icon={<CarFront size={18} />} />
-          <SummaryCard label="Alternância entre sócios" value={partnersCount} icon={<CarFront size={18} />} />
-          <SummaryCard label="Fundo do veículo" value={savingsCount} icon={<CarFront size={18} />} />
+          <SummaryCard label="Em manutenção" value={maintenanceCount} icon={<CarFront size={18} />} />
+          <SummaryCard label="Total da frota" value={totalCount} icon={<CarFront size={18} />} />
         </div>
       </div>
 
@@ -162,8 +160,6 @@ export default function Vehicles() {
           setSearch={setSearch}
           statusFilter={statusFilter}
           setStatusFilter={setStatusFilter}
-          financeFilter={financeFilter}
-          setFinanceFilter={setFinanceFilter}
         />
 
         {error ? (

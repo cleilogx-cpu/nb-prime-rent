@@ -48,14 +48,16 @@ const proposedBeneficiary =
       ? 'Clei'
       : (nextVehicle?.next_destination || 'Clei')
 
+    const financeModel = location.contracts?.finance_model || 'partners'
+
     setForm((current) => ({
       ...current,
       location_id: location.id,
       vehicle_id: location.vehicle_id,
-      finance_model: nextVehicle?.finance_model || 'partners',
-      destination: nextVehicle?.finance_model === 'savings' ? 'Fundo do veículo' : (proposedBeneficiary || ''),
+      finance_model: financeModel,
+      destination: financeModel === 'savings' ? 'Fundo do veículo' : (proposedBeneficiary || ''),
       amount: location.weekly_rent || current.amount,
-      notes: `${location.vehicle_plate} - ${location.tenant_name}`,
+      notes: `${location.vehicles?.plate || ''} - ${location.tenants?.full_name || ''}`,
     }))
   }
 
@@ -68,8 +70,8 @@ const proposedBeneficiary =
       ...form,
       created_by: userId || 'system',
       location_id: form.location_id,
-      location_tenant: selectedLocation?.tenant_name || '',
-      location_vehicle: selectedLocation?.vehicle_plate || '',
+      location_tenant: selectedLocation?.tenants?.full_name || '',
+      location_vehicle: selectedLocation?.vehicles?.plate || '',
       vehicle_id: form.vehicle_id,
       finance_model: form.finance_model,
       destination: form.destination,
@@ -113,7 +115,7 @@ const proposedBeneficiary =
             <select value={form.location_id} onChange={(event) => handleSelectLocation(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" required>
               <option value="">Selecione uma locação</option>
               {locations.map((location) => (
-                <option key={location.id} value={location.id}>{location.vehicle_plate} — {location.tenant_name}</option>
+                <option key={location.id} value={location.id}>{location.vehicles?.plate} — {location.tenants?.full_name}</option>
               ))}
             </select>
           </label>
@@ -125,7 +127,7 @@ const proposedBeneficiary =
 
           <label className="space-y-2">
             <span className="text-sm font-medium text-slate-300">Locatário</span>
-            <input value={selectedLocation?.tenant_name || ''} readOnly className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" />
+            <input value={selectedLocation?.tenants?.full_name || ''} readOnly className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" />
           </label>
 
 <label className="space-y-2">

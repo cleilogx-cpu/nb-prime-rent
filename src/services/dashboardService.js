@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabaseClient.js'
 export async function fetchDashboardData() {
   const { data: vehicles, error: vehiclesError } = await supabase
     .from('vehicles')
-    .select('id,plate,model,color,tenant_name,weekly_rent,next_payment,status,finance_model')
+    .select('id,plate,model,color,current_km,status')
     .order('created_at', { ascending: false })
     .limit(8)
 
@@ -57,8 +57,10 @@ export async function fetchDashboardData() {
     return status === 'disponível' || status === 'available'
   }).length
 
-  const partnersCount = (vehicles ?? []).filter((vehicle) => vehicle.finance_model === 'partners').length
-  const savingsCount = (vehicles ?? []).filter((vehicle) => vehicle.finance_model === 'savings').length
+  // Observação: os contadores por sócio/fundo saíram daqui porque o campo
+  // finance_model deixou de existir em `vehicles`. Isso volta quando o
+  // dashboard passar a ler de `contracts`/`rentals` (próxima fase).
+  const maintenanceCount = (vehicles ?? []).filter((vehicle) => String(vehicle.status ?? '').toLowerCase() === 'manutenção').length
 
   return {
     data: {
@@ -74,8 +76,7 @@ export async function fetchDashboardData() {
       latePayments,
       rentedCount,
       availableCount,
-      partnersCount,
-      savingsCount,
+      maintenanceCount,
     },
     error: null,
   }

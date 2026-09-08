@@ -39,8 +39,7 @@ export default function Dashboard() {
 
   const rentedCount = useMemo(() => dashboard?.rentedCount ?? 0, [dashboard])
   const availableCount = useMemo(() => dashboard?.availableCount ?? 0, [dashboard])
-  const partnersCount = useMemo(() => dashboard?.partnersCount ?? 0, [dashboard])
-  const savingsCount = useMemo(() => dashboard?.savingsCount ?? 0, [dashboard])
+  const maintenanceCount = useMemo(() => dashboard?.maintenanceCount ?? 0, [dashboard])
 
   const grossResult = useMemo(() => {
     if (!dashboard) {
@@ -84,8 +83,8 @@ export default function Dashboard() {
         <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <InfoCard label="Veículos alugados" value={rentedCount} icon={<Truck size={18} />} />
           <InfoCard label="Veículos disponíveis" value={availableCount} icon={<Truck size={18} />} />
-          <InfoCard label="Alternância entre sócios" value={partnersCount} icon={<DollarSign size={18} />} />
-          <InfoCard label="Fundo do veículo" value={savingsCount} icon={<ShieldCheck size={18} />} />
+          <InfoCard label="Em manutenção" value={maintenanceCount} icon={<ShieldCheck size={18} />} />
+          <InfoCard label="Recebido no mês" value={`R$ ${paidThisMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} icon={<DollarSign size={18} />} />
         </div>
       </div>
 
@@ -164,22 +163,17 @@ export default function Dashboard() {
 
                   <div className="mt-5 grid gap-3 sm:grid-cols-2">
                     <div className="rounded-3xl bg-slate-900/90 px-4 py-4 text-sm text-slate-300">
-                      <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Locatário</p>
-                      <p className="mt-2 text-base text-white">{vehicle.tenant_name || 'Sem locatário'}</p>
-                    </div>
-                    <div className="rounded-3xl bg-slate-900/90 px-4 py-4 text-sm text-slate-300">
                       <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Cor</p>
                       <p className="mt-2 text-base text-white">{vehicle.color || 'Não informado'}</p>
                     </div>
                     <div className="rounded-3xl bg-slate-900/90 px-4 py-4 text-sm text-slate-300">
-                      <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Aluguel semanal</p>
-                      <p className="mt-2 text-base text-white">{vehicle.weekly_rent ? `R$ ${Number(vehicle.weekly_rent).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Não informado'}</p>
-                    </div>
-                    <div className="rounded-3xl bg-slate-900/90 px-4 py-4 text-sm text-slate-300">
-                      <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Próximo pagamento</p>
-                      <p className="mt-2 text-base text-white">{vehicle.next_payment || 'Não definido'}</p>
+                      <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Quilometragem atual</p>
+                      <p className="mt-2 text-base text-white">{vehicle.current_km ? `${Number(vehicle.current_km).toLocaleString('pt-BR')} km` : 'Não informado'}</p>
                     </div>
                   </div>
+                  <p className="mt-3 text-xs text-slate-500">
+                    Locatário e aluguel agora ficam no contrato deste veículo (ver módulo Contratos).
+                  </p>
                 </div>
               ))}
             </div>

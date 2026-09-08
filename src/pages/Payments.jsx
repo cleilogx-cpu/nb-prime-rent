@@ -8,6 +8,7 @@ import PaymentForm from '../components/PaymentForm.jsx'
 import CancelPaymentDialog from '../components/CancelPaymentDialog.jsx'
 import Toast from '../components/Toast.jsx'
 import { cancelPayment, listPayments } from '../services/paymentsService.js'
+import { listActiveLocations } from '../services/locationsService.js'
 import { useAuth } from '../hooks/useAuth.jsx'
 import { supabase } from '../lib/supabaseClient.js'
 
@@ -33,17 +34,9 @@ export default function Payments() {
     setLoading(true)
     const [{ data: paymentsData, error: paymentsError }, { data: locationsData }, { data: vehiclesData }] = await Promise.all([
       listPayments(),
-
-      supabase
-  .from('locations')
-  .select('*')
-  .order('created_at', { ascending: false }),
-
+      listActiveLocations(),
       supabase.from('vehicles').select('*').order('created_at', { ascending: false }),
     ])
-    
-    console.log('LOCATIONS:', locationsData)
-    console.log('VEHICLES:', vehiclesData)
 
     if (paymentsError) {
       setToast({ message: paymentsError.message || 'Falha ao carregar recebimentos.', type: 'error' })
@@ -56,7 +49,6 @@ export default function Payments() {
   }
 
  useEffect(() => {
-  console.log('CARREGANDO DADOS...')
   loadData()
 }, [])
 

@@ -1,3 +1,6 @@
+import { addMonthsClamped } from './dateMath.js'
+import { PERIODICITY } from './constants.js'
+
 export function generateContractNumber(year = new Date().getFullYear()) {
   const now = new Date()
   const currentYear = year || now.getFullYear()
@@ -94,28 +97,77 @@ function ordinalWeekLabel(index) {
   return WEEK_LABELS[index] || `${index + 1}ª`
 }
 
+const PERIODICITY_STEP_DAYS = {
+  [PERIODICITY.DAILY]: 1,
+  [PERIODICITY.WEEKLY]: 7,
+  [PERIODICITY.BIWEEKLY]: 14,
+}
+
+function scheduleLabel(index, periodicity) {
+  const ordinal = ordinalWeekLabel(index)
+
+  if (periodicity === PERIODICITY.DAILY) return `${ordinal} diária`
+  if (periodicity === PERIODICITY.MONTHLY) return `${ordinal} parcela mensal`
+  if (periodicity === PERIODICITY.BIWEEKLY) return `${ordinal} quinzena`
+  return `${ordinal} semana`
+}
+
 /**
- * Gera o cronograma semana a semana de um contrato, no mesmo formato usado
- * no modelo de contrato em papel (1ª semana no ato da assinatura, depois uma
- * data por semana até o fim do prazo).
+ * Data da N-ésima cobrança, sempre ancorada na data de início original —
+ * nunca acumulando a partir da cobrança anterior. Isso importa pra mensal:
+ * um contrato começando dia 31 tem que voltar pro dia 31 assim que possível
+ * (ex: fevereiro grampeia pra 28, mas março já volta pro 31), em vez de
+ * ficar preso no 28 pra sempre só porque bateu num mês curto uma vez.
  */
-export function generatePaymentSchedule(startDate, totalWeeks, weeklyRent) {
-  if (!startDate || !totalWeeks) {
+function computeInstallmentDate(startDate, index, periodicity) {
+  if (periodicity === PERIODICITY.MONTHLY) {
+    return addMonthsClamped(startDate, index)
+  }
+
+  const stepDays = PERIODICITY_STEP_DAYS[periodicity] ?? PERIODICITY_STEP_DAYS[PERIODICITY.WEEKLY]
+  const date = new Date(`${startDate}T00:00:00`)
+  if (Number.isNaN(date.getTime())) {
+    return null
+  }
+
+  date.setDate(date.getDate() + index * stepDays)
+  return date.toISOString().slice(0, 10)
+}
+
+/**
+ * Gera o cronograma previsto de cobranças entre startDate e endDate,
+ * conforme a periodicidade do contrato (diária/semanal/quinzenal/mensal).
+ * Segue o mesmo formato usado no modelo de contrato em papel (1ª cobrança
+ * no ato da assinatura, depois uma por período até o fim do prazo).
+ */
+export function generatePaymentSchedule(startDate, endDate, periodicity, amount) {
+  if (!startDate || !endDate) {
+    return []
+  }
+
+  const endTime = new Date(`${endDate}T00:00:00`).getTime()
+  if (Number.isNaN(endTime)) {
     return []
   }
 
   const schedule = []
-  const baseDate = new Date(`${startDate}T00:00:00`)
+  const maxInstallments = 1000 // trava de segurança contra periodicidade/datas inválidas
 
-  for (let index = 0; index < totalWeeks; index += 1) {
-    const dueDate = new Date(baseDate)
-    dueDate.setDate(dueDate.getDate() + index * 7)
+  for (let index = 0; index < maxInstallments; index += 1) {
+    const dueDate = computeInstallmentDate(startDate, index, periodicity)
+    if (!dueDate) {
+      break
+    }
+
+    if (new Date(`${dueDate}T00:00:00`).getTime() > endTime) {
+      break
+    }
 
     schedule.push({
       week: index + 1,
-      label: `${ordinalWeekLabel(index)} semana`,
-      due_date: dueDate.toISOString().slice(0, 10),
-      amount: Number(weeklyRent || 0),
+      label: scheduleLabel(index, periodicity),
+      due_date: dueDate,
+      amount: Number(amount || 0),
     })
   }
 
@@ -153,7 +205,5 @@ export function addMonthsToDate(startDate, months) {
     return null
   }
 
-  const date = new Date(`${startDate}T00:00:00`)
-  date.setMonth(date.getMonth() + Number(months))
-  return date.toISOString().slice(0, 10)
+  return addMonthsClamped(startDate, Number(months))
 }

@@ -1,5 +1,6 @@
 import { FileText, ShieldCheck } from 'lucide-react'
 import { formatCurrency, formatDate } from '../lib/format.js'
+import { PERIODICITY_LABELS } from '../lib/constants.js'
 
 function getStatusStyle(status) {
   const normalized = String(status ?? '').toLowerCase()
@@ -46,8 +47,8 @@ export default function ContractCard({ contract, onOpenDetails }) {
           <p className="mt-1 text-white">{formatDate(contract.start_date)} — {formatDate(contract.end_date)}</p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-3 text-sm text-slate-300">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Valor semanal</p>
-          <p className="mt-1 text-white">{formatCurrency(contract.weekly_rent)}</p>
+          <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Valor ({PERIODICITY_LABELS[contract.periodicity] || 'Semanal'})</p>
+          <p className="mt-1 text-white">{formatCurrency(contract.payment_amount)}</p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-3 text-sm text-slate-300">
           <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500 flex items-center gap-1"><ShieldCheck size={12} /> Distribuição</p>

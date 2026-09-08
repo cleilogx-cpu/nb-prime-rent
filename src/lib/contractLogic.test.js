@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { generateContractNumber, calculateContractEndDate, validateContractDates, buildContractStatus, cloneContractForRenewal, generatePaymentSchedule, deriveWeeksFromDates, addMonthsToDate } from './contractLogic.js'
+import { addMonthsClamped } from './dateMath.js'
 
 test('generates numbered contracts in the requested format', () => {
   const contractNumber = generateContractNumber(2026)
@@ -36,7 +37,7 @@ test('derives 13 weeks for a 3-month contract, matching the real example', () =>
 })
 
 test('generates a weekly schedule starting on the signing date', () => {
-  const schedule = generatePaymentSchedule('2026-06-10', 13, 1500)
+  const schedule = generatePaymentSchedule('2026-06-10', '2026-09-08', 'weekly', 1500)
   assert.equal(schedule.length, 13)
   assert.equal(schedule[0].due_date, '2026-06-10')
   assert.equal(schedule[0].label, 'Primeira semana')
@@ -46,12 +47,34 @@ test('generates a weekly schedule starting on the signing date', () => {
   assert.equal(schedule[0].amount, 1500)
 })
 
-test('returns an empty schedule when there is no start date or duration', () => {
-  assert.deepEqual(generatePaymentSchedule(null, 4, 1500), [])
-  assert.deepEqual(generatePaymentSchedule('2026-06-10', 0, 1500), [])
+test('generates a daily schedule', () => {
+  const schedule = generatePaymentSchedule('2026-06-10', '2026-06-13', 'daily', 238)
+  assert.equal(schedule.length, 4)
+  assert.equal(schedule[0].due_date, '2026-06-10')
+  assert.equal(schedule[0].label, 'Primeira diária')
+  assert.equal(schedule[3].due_date, '2026-06-13')
+})
+
+test('generates a monthly schedule anchored to the start day, clamped on short months', () => {
+  const schedule = generatePaymentSchedule('2026-01-31', '2026-04-30', 'monthly', 1000)
+  assert.equal(schedule.length, 4)
+  assert.equal(schedule[0].due_date, '2026-01-31')
+  assert.equal(schedule[0].label, 'Primeira parcela mensal')
+  assert.equal(schedule[1].due_date, '2026-02-28') // fevereiro não tem dia 31
+  assert.equal(schedule[2].due_date, '2026-03-31') // volta pro dia 31, não fica preso em 28
+  assert.equal(schedule[3].due_date, '2026-04-30') // abril não tem dia 31
+})
+
+test('returns an empty schedule when there is no start date or end date', () => {
+  assert.deepEqual(generatePaymentSchedule(null, '2026-07-08', 'weekly', 1500), [])
+  assert.deepEqual(generatePaymentSchedule('2026-06-10', null, 'weekly', 1500), [])
 })
 
 test('adds months to a date for the "prazo em meses" field', () => {
   assert.equal(addMonthsToDate('2026-06-10', 3), '2026-09-10')
-  assert.equal(addMonthsToDate('2026-01-31', 1), '2026-03-03')
+})
+
+test('clamps to the last day of the month when the original day does not exist there', () => {
+  assert.equal(addMonthsClamped('2026-01-31', 1), '2026-02-28')
+  assert.equal(addMonthsClamped('2026-01-31', 2), '2026-03-31')
 })

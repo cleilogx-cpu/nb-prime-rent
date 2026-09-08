@@ -2,13 +2,23 @@ import { useEffect, useMemo, useState } from 'react'
 import { X } from 'lucide-react'
 import { listVehicles } from '../services/vehiclesService.js'
 import { addMonthsToDate, deriveWeeksFromDates } from '../lib/contractLogic.js'
+import { PERIODICITY, PERIODICITY_LABELS } from '../lib/constants.js'
 
 const DURATION_PRESETS = [
+  { label: '1 mês', months: 1 },
+  { label: '2 meses', months: 2 },
   { label: '3 meses', months: 3 },
   { label: '6 meses', months: 6 },
   { label: '12 meses', months: 12 },
   { label: 'Personalizado', months: 'custom' },
 ]
+
+const PAYMENT_AMOUNT_LABEL = {
+  [PERIODICITY.DAILY]: 'Valor da diária',
+  [PERIODICITY.WEEKLY]: 'Valor semanal',
+  [PERIODICITY.BIWEEKLY]: 'Valor da quinzena',
+  [PERIODICITY.MONTHLY]: 'Valor mensal',
+}
 
 const initialForm = {
   vehicle_id: '',
@@ -18,14 +28,21 @@ const initialForm = {
     cpf: '',
     rg: '',
     phone: '',
-    address: '',
+    address_street: '',
+    address_number: '',
+    address_neighborhood: '',
+    address_zip: '',
+    address_complement: '',
+    address_city: '',
+    address_state: '',
     cnh_number: '',
     cnh_validity: '',
   },
   start_date: new Date().toISOString().slice(0, 10),
   duration_months: 3,
   end_date: '',
-  weekly_rent: '',
+  periodicity: PERIODICITY.WEEKLY,
+  payment_amount: '',
   deposit_amount: '',
   initial_km: '',
   observations: '',
@@ -94,8 +111,14 @@ export default function ContractForm({ open, onClose, onSubmit, loading }) {
     if (!form.vehicle_id) nextErrors.vehicle_id = 'Selecione um veículo.'
     if (!form.tenant.full_name?.trim()) nextErrors.full_name = 'O nome do locatário é obrigatório.'
     if (!form.tenant.cpf?.trim()) nextErrors.cpf = 'O CPF é obrigatório.'
+    if (!form.tenant.address_street?.trim()) nextErrors.address_street = 'O logradouro é obrigatório.'
+    if (!form.tenant.address_number?.trim()) nextErrors.address_number = 'O número é obrigatório.'
+    if (!form.tenant.address_neighborhood?.trim()) nextErrors.address_neighborhood = 'O bairro é obrigatório.'
+    if (!form.tenant.address_zip?.trim()) nextErrors.address_zip = 'O CEP é obrigatório.'
+    if (!form.tenant.address_city?.trim()) nextErrors.address_city = 'A cidade é obrigatória.'
+    if (!form.tenant.address_state?.trim()) nextErrors.address_state = 'A UF é obrigatória.'
     if (!form.start_date) nextErrors.start_date = 'A data de início é obrigatória.'
-    if (!form.weekly_rent) nextErrors.weekly_rent = 'O valor semanal é obrigatório.'
+    if (!form.payment_amount) nextErrors.payment_amount = 'O valor do pagamento é obrigatório.'
     if (form.duration_months === 'custom' && !customMonths) nextErrors.duration_months = 'Informe quantos meses.'
 
     setErrors(nextErrors)
@@ -118,7 +141,8 @@ export default function ContractForm({ open, onClose, onSubmit, loading }) {
       start_date: form.start_date,
       duration_months: form.end_date ? undefined : months,
       end_date: form.end_date || undefined,
-      weekly_rent: form.weekly_rent,
+      periodicity: form.periodicity,
+      payment_amount: form.payment_amount,
       deposit_amount: form.deposit_amount,
       initial_km: form.initial_km,
       observations: form.observations,
@@ -201,10 +225,42 @@ export default function ContractForm({ open, onClose, onSubmit, loading }) {
                 <span>Telefone / WhatsApp</span>
                 <input value={form.tenant.phone} onChange={(event) => handleTenantChange('phone', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
               </label>
+
               <label className="flex flex-col gap-2 text-sm text-slate-300 md:col-span-2">
-                <span>Endereço</span>
-                <input value={form.tenant.address} onChange={(event) => handleTenantChange('address', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+                <span>Logradouro (Rua/Avenida)</span>
+                <input value={form.tenant.address_street} onChange={(event) => handleTenantChange('address_street', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+                {errors.address_street ? <span className="text-xs text-rose-300">{errors.address_street}</span> : null}
               </label>
+              <label className="flex flex-col gap-2 text-sm text-slate-300">
+                <span>Número</span>
+                <input value={form.tenant.address_number} onChange={(event) => handleTenantChange('address_number', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+                {errors.address_number ? <span className="text-xs text-rose-300">{errors.address_number}</span> : null}
+              </label>
+              <label className="flex flex-col gap-2 text-sm text-slate-300">
+                <span>Bairro</span>
+                <input value={form.tenant.address_neighborhood} onChange={(event) => handleTenantChange('address_neighborhood', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+                {errors.address_neighborhood ? <span className="text-xs text-rose-300">{errors.address_neighborhood}</span> : null}
+              </label>
+              <label className="flex flex-col gap-2 text-sm text-slate-300">
+                <span>CEP</span>
+                <input value={form.tenant.address_zip} onChange={(event) => handleTenantChange('address_zip', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" placeholder="00000-000" />
+                {errors.address_zip ? <span className="text-xs text-rose-300">{errors.address_zip}</span> : null}
+              </label>
+              <label className="flex flex-col gap-2 text-sm text-slate-300">
+                <span>Complemento</span>
+                <input value={form.tenant.address_complement} onChange={(event) => handleTenantChange('address_complement', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" placeholder="Opcional" />
+              </label>
+              <label className="flex flex-col gap-2 text-sm text-slate-300">
+                <span>Cidade</span>
+                <input value={form.tenant.address_city} onChange={(event) => handleTenantChange('address_city', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+                {errors.address_city ? <span className="text-xs text-rose-300">{errors.address_city}</span> : null}
+              </label>
+              <label className="flex flex-col gap-2 text-sm text-slate-300">
+                <span>UF</span>
+                <input value={form.tenant.address_state} onChange={(event) => handleTenantChange('address_state', event.target.value.toUpperCase())} maxLength={2} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" placeholder="RO" />
+                {errors.address_state ? <span className="text-xs text-rose-300">{errors.address_state}</span> : null}
+              </label>
+
               <label className="flex flex-col gap-2 text-sm text-slate-300">
                 <span>CNH (número)</span>
                 <input value={form.tenant.cnh_number} onChange={(event) => handleTenantChange('cnh_number', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
@@ -218,7 +274,7 @@ export default function ContractForm({ open, onClose, onSubmit, loading }) {
 
           {/* Passo 4: prazo e valores */}
           <div className="space-y-3">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">4. Prazo, valores e km inicial</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">4. Prazo, periodicidade e valores</p>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="flex flex-col gap-2 text-sm text-slate-300">
                 <span>Data de início</span>
@@ -250,13 +306,26 @@ export default function ContractForm({ open, onClose, onSubmit, loading }) {
               <label className="flex flex-col gap-2 text-sm text-slate-300">
                 <span>Data final (calculada — pode ajustar)</span>
                 <input type="date" value={form.end_date || computedEndDate || ''} onChange={(event) => handleChange('end_date', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
-                <span className="text-xs text-slate-500">{computedWeeks} semana(s) de cobrança</span>
+                <span className="text-xs text-slate-500">{computedWeeks} semana(s) de vigência total</span>
               </label>
 
               <label className="flex flex-col gap-2 text-sm text-slate-300">
-                <span>Valor semanal do aluguel</span>
-                <input type="number" min="0" step="0.01" value={form.weekly_rent} onChange={(event) => handleChange('weekly_rent', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
-                {errors.weekly_rent ? <span className="text-xs text-rose-300">{errors.weekly_rent}</span> : null}
+                <span>Periodicidade do pagamento</span>
+                <select
+                  value={form.periodicity}
+                  onChange={(event) => handleChange('periodicity', event.target.value)}
+                  className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none"
+                >
+                  {Object.entries(PERIODICITY_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="flex flex-col gap-2 text-sm text-slate-300">
+                <span>{PAYMENT_AMOUNT_LABEL[form.periodicity] || 'Valor do pagamento'}</span>
+                <input type="number" min="0" step="0.01" value={form.payment_amount} onChange={(event) => handleChange('payment_amount', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+                {errors.payment_amount ? <span className="text-xs text-rose-300">{errors.payment_amount}</span> : null}
               </label>
 
               <label className="flex flex-col gap-2 text-sm text-slate-300">

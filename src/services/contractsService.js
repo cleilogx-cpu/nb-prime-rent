@@ -6,20 +6,24 @@ import {
   generateContractNumber,
   validateContractDates,
 } from '../lib/contractLogic.js'
+import { PERIODICITY, VEHICLE_STATUS } from '../lib/constants.js'
 
 const TABLE = 'contracts'
 
 const CONTRACT_SELECT = '*, tenants(*), vehicles(*)'
 
 /**
- * O prazo é escolhido em MESES na tela (3, 5, 6, 12...), mas o pagamento é
- * semanal. Aqui a gente resolve os dois formatos:
+ * O prazo do contrato é escolhido em MESES na tela (1, 2, 3, 6, 12...) e
+ * usa meses de calendário (addMonthsToDate/addMonthsClamped) -- é um eixo
+ * independente da periodicidade do pagamento (diária/semanal/quinzenal/
+ * mensal). Aqui a gente resolve os dois formatos de prazo:
  * - se vier `duration_months`, calcula a data final a partir dele (pode ser
  *   ajustada manualmente depois via `end_date`);
  * - se vier `end_date` direto (ex: usuário editou a data manualmente), usa
  *   ela como está;
- * - `weeks` sempre é derivado das datas finais, porque é isso que dirige o
- *   cronograma de cobrança semanal.
+ * - `weeks` sempre é derivado das datas finais -- é só a duração total do
+ *   contrato em semanas (usada na cláusula de vigência do documento), não
+ *   tem relação com a periodicidade do pagamento.
  */
 function resolveContractDates(payload) {
   const startDate = payload.start_date
@@ -38,7 +42,8 @@ function normalizeContractPayload(payload) {
     start_date: startDate,
     end_date: endDate,
     weeks,
-    weekly_rent: Number(payload.weekly_rent || 0),
+    periodicity: payload.periodicity || PERIODICITY.WEEKLY,
+    payment_amount: Number(payload.payment_amount || 0),
     deposit_amount: Number(payload.deposit_amount || 0),
     initial_km: payload.initial_km === '' || payload.initial_km === null || payload.initial_km === undefined
       ? null
@@ -177,7 +182,8 @@ export async function signContract(id, { signed_document_url } = {}) {
       start_date: contract.start_date,
       expected_end_date: contract.end_date,
       initial_km: contract.initial_km,
-      weekly_rent: contract.weekly_rent,
+      payment_amount: contract.payment_amount,
+      periodicity: contract.periodicity,
       status: 'Ativa',
     })
     .select('*')
@@ -202,7 +208,7 @@ export async function signContract(id, { signed_document_url } = {}) {
     return { data: null, error: updateError }
   }
 
-  await setVehicleStatus(contract.vehicle_id, 'Alugado')
+  await setVehicleStatus(contract.vehicle_id, VEHICLE_STATUS.ALUGADO)
 
   return { data: updatedContract, error: null }
 }

@@ -21,6 +21,34 @@ export function formatCurrency(value) {
   }).format(numericValue)
 }
 
+/**
+ * Monta o endereço completo do locatário a partir dos campos estruturados
+ * (logradouro/número/bairro/CEP/complemento/cidade/UF). Locatários antigos
+ * que só têm o campo `address` livre (de antes dessa separação) continuam
+ * caindo no fallback — nunca tentamos "adivinhar" a separação de um texto
+ * livre já salvo.
+ */
+export function formatTenantAddress(tenant) {
+  if (!tenant) {
+    return 'Não informado'
+  }
+
+  const hasStructuredAddress = Boolean(
+    tenant.address_street || tenant.address_city || tenant.address_state,
+  )
+
+  if (!hasStructuredAddress) {
+    return tenant.address || 'Não informado'
+  }
+
+  const line1 = [tenant.address_street, tenant.address_number].filter(Boolean).join(', ')
+  const line2 = [tenant.address_neighborhood, tenant.address_complement].filter(Boolean).join(' - ')
+  const line3 = [tenant.address_city, tenant.address_state].filter(Boolean).join('/')
+  const zip = tenant.address_zip ? `CEP ${tenant.address_zip}` : ''
+
+  return [line1, line2, line3, zip].filter(Boolean).join(', ') || 'Não informado'
+}
+
 export function formatDate(value) {
   if (!value) {
     return 'Não informado'

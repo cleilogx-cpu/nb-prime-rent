@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { CheckCircle2, Download, FileText, X, XCircle } from 'lucide-react'
 import { downloadContractDocx } from '../lib/contractDocx.js'
 import { downloadContractPdf } from '../lib/contractPdf.js'
-import { formatCurrency, formatDate } from '../lib/format.js'
+import { formatCurrency, formatDate, formatTenantAddress } from '../lib/format.js'
+import { PERIODICITY_LABELS } from '../lib/constants.js'
 
 const FINANCE_LABELS = { partners: 'Sócios', savings: 'Fundo' }
 
@@ -59,13 +60,13 @@ export default function ContractDetailsDrawer({ open, contract, onClose, onSign,
             <p className="mt-1 text-white">{formatDate(contract.start_date)} — {formatDate(contract.end_date)} ({contract.weeks} semanas)</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-4 text-sm text-slate-300">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Valor semanal / Caução</p>
-            <p className="mt-1 text-white">{formatCurrency(contract.weekly_rent)} / {formatCurrency(contract.deposit_amount)}</p>
+            <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Valor ({PERIODICITY_LABELS[contract.periodicity] || 'Semanal'}) / Caução</p>
+            <p className="mt-1 text-white">{formatCurrency(contract.payment_amount)} / {formatCurrency(contract.deposit_amount)}</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-4 text-sm text-slate-300 sm:col-span-2">
             <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Locatário</p>
             <p className="mt-1 text-white">CPF: {tenant?.cpf || 'não informado'}</p>
-            <p className="mt-1 text-white">{tenant?.address || 'Endereço não informado'}</p>
+            <p className="mt-1 text-white">{formatTenantAddress(tenant)}</p>
           </div>
         </div>
 

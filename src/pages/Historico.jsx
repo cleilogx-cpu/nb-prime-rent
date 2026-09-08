@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Archive } from 'lucide-react'
 import { listLocationHistory } from '../services/locationsService.js'
 import { formatCurrency, formatDate } from '../services/locationLogic.js'
+import { PERIODICITY_LABELS } from '../lib/constants.js'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 
 const FINANCE_LABELS = { partners: 'Sócios', savings: 'Fundo' }
@@ -66,8 +67,8 @@ function HistoryCard({ location }) {
         </div>
         <div className="space-y-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Valor semanal</p>
-            <p className="mt-2 text-base font-medium text-white">{formatCurrency(location.weekly_rent)}</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Valor ({PERIODICITY_LABELS[location.periodicity] || 'Semanal'})</p>
+            <p className="mt-2 text-base font-medium text-white">{formatCurrency(location.payment_amount)}</p>
           </div>
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Km inicial / final</p>

@@ -90,6 +90,8 @@ function normalizePaymentPayload(payload) {
 
   return {
     vehicle_id: payload.vehicle_id,
+    rental_id: payload.rental_id || null,
+    tenant_id: payload.tenant_id || null,
     payment_date:
       payload.payment_date || new Date().toISOString().slice(0, 10),
 

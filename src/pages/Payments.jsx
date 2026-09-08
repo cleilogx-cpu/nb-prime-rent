@@ -12,6 +12,9 @@ import { listActiveLocations } from '../services/locationsService.js'
 import { listDeposits } from '../services/depositsService.js'
 import { useAuth } from '../hooks/useAuth.jsx'
 import { supabase } from '../lib/supabaseClient.js'
+import { computePaymentTotals, monthRange, MONTH_LABELS } from '../lib/paymentAggregation.js'
+
+const now = new Date()
 
 export default function Payments() {
   const { user } = useAuth()
@@ -21,7 +24,8 @@ export default function Payments() {
   const [vehicles, setVehicles] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [period, setPeriod] = useState('')
+  const [month, setMonth] = useState(now.getMonth() + 1)
+  const [year, setYear] = useState(now.getFullYear())
   const [statusFilter, setStatusFilter] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('')
   const [financeFilter, setFinanceFilter] = useState('')
@@ -56,6 +60,8 @@ export default function Payments() {
   loadData()
 }, [])
 
+  const { periodStart, periodEnd } = useMemo(() => monthRange(year, month), [year, month])
+
   const filteredPayments = useMemo(() => {
     return payments.filter((payment) => {
       const metadata = typeof payment.notes === 'string' ? (() => {
@@ -72,10 +78,20 @@ export default function Payments() {
       const matchesFinance = !financeFilter || metadata.financeModel === financeFilter
       const matchesDestination = !destinationFilter || payment.destination === destinationFilter
       const paymentDate = payment.payment_date || ''
-      const matchesPeriod = !period || paymentDate === period
+      const matchesPeriod = paymentDate >= periodStart && paymentDate <= periodEnd
       return matchesSearch && matchesStatus && matchesMethod && matchesFinance && matchesDestination && matchesPeriod
     })
-  }, [payments, search, period, statusFilter, paymentMethod, financeFilter, destinationFilter])
+  }, [payments, search, periodStart, periodEnd, statusFilter, paymentMethod, financeFilter, destinationFilter])
+
+  const totals = useMemo(
+    () => computePaymentTotals({ payments, periodStart, periodEnd }),
+    [payments, periodStart, periodEnd],
+  )
+
+  const resetToCurrentMonth = () => {
+    setMonth(now.getMonth() + 1)
+    setYear(now.getFullYear())
+  }
 
   const openCreate = () => {
     setSelectedPayment(null)
@@ -113,35 +129,8 @@ export default function Payments() {
     setSelectedPayment(null)
   }
 
-const paidTotal = payments
-  .filter((payment) => payment.status === 'Pago')
-  .reduce((acc, payment) => acc + Number(payment.amount ?? 0), 0)
+  const { paidTotal, cancelledTotal, cleiTotal, edsonTotal, fundsTotal } = totals
 
-const cancelledTotal = payments
-  .filter((payment) => payment.status === 'Cancelado')
-  .reduce((acc, payment) => acc + Number(payment.amount ?? 0), 0)
-
-const cleiTotal = payments
-  .filter(
-    (payment) =>
-      payment.status === 'Pago' &&
-      String(payment.destination ?? '').toLowerCase() === 'clei'
-  )
-  .reduce((acc, payment) => acc + Number(payment.amount ?? 0), 0)
-  const edsonTotal = payments
-  .filter(
-    (payment) =>
-      payment.status === 'Pago' &&
-      String(payment.destination ?? '').toLowerCase() === 'edson'
-  )
-  .reduce((acc, payment) => acc + Number(payment.amount ?? 0), 0)
-  const fundsTotal = payments
-  .filter(
-    (payment) =>
-      payment.status === 'Pago' &&
-      String(payment.destination ?? '').toLowerCase() === 'fundo do veículo'
-  )
-  .reduce((acc, payment) => acc + Number(payment.amount ?? 0), 0)
   return (
     <div className="space-y-8">
       <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
@@ -149,7 +138,7 @@ const cleiTotal = payments
       <section className="rounded-[32px] border border-white/10 bg-slate-900/80 p-6 shadow-xl shadow-black/30 sm:p-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm uppercase tracking-[0.35em] text-amber-300/80">Recebimentos</p>
+            <p className="text-sm uppercase tracking-[0.35em] text-amber-300/80">Recebimentos — {MONTH_LABELS[month - 1]}/{year}</p>
             <h2 className="mt-3 text-3xl font-semibold text-white">Registre e acompanhe os valores recebidos das locações.</h2>
           </div>
           <button type="button" onClick={openCreate} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-300/15 px-4 py-3 text-sm font-semibold text-amber-200 transition hover:bg-amber-300/25">
@@ -160,7 +149,7 @@ const cleiTotal = payments
 
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-[24px] border border-white/10 bg-slate-950/70 p-5">
-            <p className="text-sm uppercase tracking-[0.35em] text-slate-500">Total pago no mês</p>
+            <p className="text-sm uppercase tracking-[0.35em] text-slate-500">Total pago no período</p>
             <p className="mt-5 text-3xl font-semibold text-white">R$ {paidTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
           </div>
           <div className="rounded-[24px] border border-white/10 bg-slate-950/70 p-5">
@@ -193,7 +182,16 @@ const cleiTotal = payments
       </section>
 
       <section className="rounded-[32px] border border-white/10 bg-slate-900/80 p-6 shadow-xl shadow-black/30">
-        <PaymentFilters search={search} setSearch={setSearch} period={period} setPeriod={setPeriod} statusFilter={statusFilter} setStatusFilter={setStatusFilter} paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod} financeFilter={financeFilter} setFinanceFilter={setFinanceFilter} destinationFilter={destinationFilter} setDestinationFilter={setDestinationFilter} />
+        <PaymentFilters
+          search={search} setSearch={setSearch}
+          month={month} setMonth={setMonth}
+          year={year} setYear={setYear}
+          onResetToCurrentMonth={resetToCurrentMonth}
+          statusFilter={statusFilter} setStatusFilter={setStatusFilter}
+          paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod}
+          financeFilter={financeFilter} setFinanceFilter={setFinanceFilter}
+          destinationFilter={destinationFilter} setDestinationFilter={setDestinationFilter}
+        />
       </section>
 
       {loading ? (

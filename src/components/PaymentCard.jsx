@@ -1,7 +1,20 @@
-import { CalendarDays, CreditCard, Wallet2 } from 'lucide-react'
+import { CalendarDays, CreditCard, Receipt, Wallet2 } from 'lucide-react'
 import PaymentDestinationBadge from './PaymentDestinationBadge.jsx'
 import PaymentStatusBadge from './PaymentStatusBadge.jsx'
 import { formatCurrency, formatDate } from '../lib/format.js'
+import { PERIODICITY_LABELS, RECEIPT_TYPE, RECEIPT_TYPE_LABELS } from '../lib/constants.js'
+
+function getReceiptLabel(payment) {
+  const typeLabel = RECEIPT_TYPE_LABELS[payment.type] || RECEIPT_TYPE_LABELS[RECEIPT_TYPE.RENT]
+
+  if (payment.type === RECEIPT_TYPE.RENT) {
+    const periodicity = payment.contracts?.periodicity
+    const periodicityLabel = periodicity ? PERIODICITY_LABELS[periodicity] : null
+    return periodicityLabel ? `${typeLabel} — ${periodicityLabel}` : typeLabel
+  }
+
+  return typeLabel
+}
 
 function getVehiclePlate(payment, metadata) {
   if (payment.vehicle_plate) {
@@ -36,7 +49,13 @@ export default function PaymentCard({ payment, onView, onCancel }) {
   {getVehiclePlate(payment, metadata)}
 </h3>
         </div>
-        <PaymentStatusBadge status={payment.status} />
+        <div className="flex flex-col items-end gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">
+            <Receipt size={12} />
+            {getReceiptLabel(payment)}
+          </span>
+          <PaymentStatusBadge status={payment.status} />
+        </div>
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">

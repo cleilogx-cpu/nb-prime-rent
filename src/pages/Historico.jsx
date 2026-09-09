@@ -3,6 +3,7 @@ import { Archive } from 'lucide-react'
 import { listLocationHistory } from '../services/locationsService.js'
 import { listPayments } from '../services/paymentsService.js'
 import { listExpenses } from '../services/expensesService.js'
+import { listDeposits } from '../services/depositsService.js'
 import { formatCurrency, formatDate, computeLocationFinancials } from '../services/locationLogic.js'
 import { PERIODICITY_LABELS } from '../lib/constants.js'
 import LoadingScreen from '../components/LoadingScreen.jsx'
@@ -26,10 +27,14 @@ function ratingBadgeStyle(rating) {
   return 'border-white/10 bg-slate-900 text-slate-400'
 }
 
-function HistoryCard({ location, payments, expenses }) {
+function HistoryCard({ location, payments, expenses, deposits }) {
   const vehicle = location.vehicles
   const tenant = location.tenants
   const { totalReceived, totalExpenses } = computeLocationFinancials(location, payments, expenses)
+  // Só o valor efetivamente recebido -- status/saldo/previsto ficam só no
+  // módulo Caução, não fazem sentido num registro histórico fechado (seção
+  // 30 do pedido).
+  const depositReceived = deposits.find((item) => item.contract_id === location.contract_id)?.received_amount ?? 0
 
   return (
     <article className="rounded-[30px] border border-white/10 bg-slate-900/80 p-6 shadow-xl shadow-black/30">
@@ -82,7 +87,7 @@ function HistoryCard({ location, payments, expenses }) {
         </div>
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+      <div className="mt-6 grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4">
           <p className="text-xs uppercase tracking-[0.3em] text-emerald-300/80">Total recebido</p>
           <p className="mt-2 text-lg font-semibold text-emerald-100">{formatCurrency(totalReceived)}</p>
@@ -90,6 +95,10 @@ function HistoryCard({ location, payments, expenses }) {
         <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-4">
           <p className="text-xs uppercase tracking-[0.3em] text-rose-300/80">Total de gastos</p>
           <p className="mt-2 text-lg font-semibold text-rose-100">{formatCurrency(totalExpenses)}</p>
+        </div>
+        <div className="rounded-2xl border border-sky-400/20 bg-sky-500/10 p-4">
+          <p className="text-xs uppercase tracking-[0.3em] text-sky-300/80">Caução recebida</p>
+          <p className="mt-2 text-lg font-semibold text-sky-100">{formatCurrency(depositReceived)}</p>
         </div>
       </div>
 
@@ -107,16 +116,18 @@ export default function Historico() {
   const [locations, setLocations] = useState([])
   const [payments, setPayments] = useState([])
   const [expenses, setExpenses] = useState([])
+  const [deposits, setDeposits] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     const load = async () => {
       setLoading(true)
-      const [{ data, error: fetchError }, { data: paymentsData }, { data: expensesData }] = await Promise.all([
+      const [{ data, error: fetchError }, { data: paymentsData }, { data: expensesData }, { data: depositsData }] = await Promise.all([
         listLocationHistory(),
         listPayments(),
         listExpenses(),
+        listDeposits(),
       ])
 
       if (fetchError) {
@@ -127,6 +138,7 @@ export default function Historico() {
       }
       setPayments(paymentsData ?? [])
       setExpenses(expensesData ?? [])
+      setDeposits(depositsData ?? [])
       setLoading(false)
     }
 
@@ -169,7 +181,7 @@ export default function Historico() {
       {!error && locations.length > 0 ? (
         <div className="grid gap-5 xl:grid-cols-2">
           {locations.map((location) => (
-            <HistoryCard key={location.id} location={location} payments={payments} expenses={expenses} />
+            <HistoryCard key={location.id} location={location} payments={payments} expenses={expenses} deposits={deposits} />
           ))}
         </div>
       ) : null}

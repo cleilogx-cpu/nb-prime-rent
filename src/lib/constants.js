@@ -59,10 +59,16 @@ export const RECEIPT_TYPE_LABELS = {
   [RECEIPT_TYPE.DEPOSIT]: 'Caução',
 }
 
-// Status de contract_charges (cobranças/vencimentos).
+// Status de contract_charges (cobranças/vencimentos). CANCELADA é usado
+// quando a locação é encerrada antecipadamente -- cobranças futuras que
+// ainda não venceram viram Cancelada em vez de continuar Pendente pra
+// sempre (o que faria elas aparecerem como atrasadas de uma locação que já
+// acabou). listUpcomingCharges/listOverdueCharges só olham Pendente, então
+// isso sozinho já tira essas cobranças das duas listas.
 export const CHARGE_STATUS = {
   PENDENTE: 'Pendente',
   PAGO: 'Pago',
+  CANCELADA: 'Cancelada',
 }
 
 // Status de contract_deposits (caução).

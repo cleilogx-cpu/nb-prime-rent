@@ -8,17 +8,47 @@ const PAGE_HEIGHT = 297
 const BOTTOM_LIMIT = PAGE_HEIGHT - 20
 
 /**
+ * Desenha uma linha (já sem quebra -- vem de splitTextToSize) distribuindo o
+ * espaço extra entre as palavras pra ocupar toda `maxWidth`, imitando a
+ * justificação do .docx (AlignmentType.JUSTIFIED). Uma linha com uma palavra
+ * só (ou já do tamanho da largura) não tem onde distribuir espaço -- desenha
+ * normal. Quem chama decide não usar isto na última linha do parágrafo (regra
+ * tipográfica padrão: a última linha de um parágrafo justificado não estica).
+ */
+function drawJustifiedLine(doc, line, x, y, maxWidth) {
+  const words = line.trim().split(/\s+/)
+
+  if (words.length <= 1) {
+    doc.text(line, x, y)
+    return
+  }
+
+  const spaceWidth = doc.getTextWidth(' ')
+  const wordsWidth = words.reduce((total, word) => total + doc.getTextWidth(word), 0)
+  const naturalWidth = wordsWidth + spaceWidth * (words.length - 1)
+  const extraPerGap = Math.max(0, (maxWidth - naturalWidth) / (words.length - 1))
+
+  let cursorX = x
+  words.forEach((word) => {
+    doc.text(word, cursorX, y)
+    cursorX += doc.getTextWidth(word) + spaceWidth + extraPerGap
+  })
+}
+
+/**
  * Renderiza as seções em um PDF (jsPDF), com quebra de página automática,
  * rodapé com numeração de página e listas com recuo de verdade (a
  * continuação de um item longo alinha embaixo do texto, não do número/•).
  * Retorna o objeto jsPDF pronto — quem chamar decide se salva, baixa ou
  * gera um blob/URL pra anexar em outro lugar.
  *
- * Limitação aceita: jsPDF 2.5.2 não tem justificação de texto nativa (só
- * align left/center/right), então os parágrafos ficam com a margem direita
- * "serrilhada" -- diferente do .docx, que usa AlignmentType.JUSTIFIED. Não é
- * bug, é o teto do que a lib faz; o Word continua sendo o formato editável
- * de verdade pro cliente corrigir algo rapidinho.
+ * Corpo das cláusulas ('paragraph') é justificado via drawJustifiedLine
+ * (margem esquerda alinhada, direita alinhada pela distribuição de espaços)
+ * pra ficar igual ao .docx. Títulos ('heading'/'subheading') continuam
+ * esquerda+negrito e listas continuam esquerda+recuo -- só o corpo corrido
+ * da cláusula muda. A quebra de linha/página não muda em nada (mesmo
+ * splitTextToSize, mesmo ensureSpace por linha): só a forma de desenhar cada
+ * linha já quebrada é diferente, então a paginação existente é preservada.
  */
 export function renderContractPdf(sections) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
@@ -66,14 +96,30 @@ export function renderContractPdf(sections) {
         y += 1
         break
       case 'subheading':
-        ensureSpace(9)
+        // Reserva espaço extra (não só o da própria linha do título) pra
+        // evitar título de seção sozinho no fim da página, com a cláusula
+        // inteira jogada pra próxima -- reserva o suficiente pro título +
+        // ao menos a primeira linha do parágrafo que sempre vem depois dele.
+        ensureSpace(9 + 6)
         y += 2
         writeLines([section.text], { size: 12, style: 'bold', gap: 7 })
         break
-      case 'paragraph':
-        writeLines(doc.splitTextToSize(section.text, CONTENT_WIDTH), { size: 10, style: 'normal', gap: 5 })
+      case 'paragraph': {
+        const lines = doc.splitTextToSize(section.text, CONTENT_WIDTH)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(10)
+        lines.forEach((line, index) => {
+          ensureSpace(5)
+          if (index === lines.length - 1) {
+            doc.text(line, MARGIN, y)
+          } else {
+            drawJustifiedLine(doc, line, MARGIN, y, CONTENT_WIDTH)
+          }
+          y += 5
+        })
         y += 1
         break
+      }
       case 'list':
         section.items.forEach((item, index) => {
           const prefix = section.ordered ? `${index + 1}. ` : '• '

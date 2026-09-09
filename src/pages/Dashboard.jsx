@@ -4,7 +4,7 @@ import { AlertTriangle, CalendarClock, ShieldCheck, Truck } from 'lucide-react'
 import { fetchOverviewData, fetchFinancialRawData } from '../services/dashboardService.js'
 import { listVehicles } from '../services/vehiclesService.js'
 import { computePaymentTotals, monthRange, MONTH_LABELS } from '../lib/paymentAggregation.js'
-import { getVehicleDisplayStatus } from '../lib/vehicleStatus.js'
+import { getVehicleDisplayStatus, isVehicleAvailable, isVehicleRented } from '../lib/vehicleStatus.js'
 import { formatCurrency, formatDate } from '../lib/format.js'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 
@@ -49,6 +49,7 @@ export default function Dashboard() {
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
   const [vehicleId, setVehicleId] = useState('')
+  const [fleetFilter, setFleetFilter] = useState('all')
 
   useEffect(() => {
     const load = async () => {
@@ -90,6 +91,28 @@ export default function Dashboard() {
     const vehicle = vehicles.find((item) => item.id === vehicleId)
     return vehicle?.plate || 'Veículo'
   }, [vehicleId, vehicles])
+
+  // Ordena disponíveis primeiro, depois alugados, depois o resto (só
+  // manutenção, sem estar alugado) -- mesma lógica central de status de
+  // src/lib/vehicleStatus.js, sem duplicar a regra aqui.
+  const sortedFleetVehicles = useMemo(() => {
+    const priority = (vehicle) => {
+      if (isVehicleAvailable(vehicle)) return 0
+      if (isVehicleRented(vehicle)) return 1
+      return 2
+    }
+    return [...(overview?.vehicles ?? [])].sort((a, b) => priority(a) - priority(b))
+  }, [overview])
+
+  const filteredFleetVehicles = useMemo(() => {
+    if (fleetFilter === 'available') {
+      return sortedFleetVehicles.filter((vehicle) => isVehicleAvailable(vehicle))
+    }
+    if (fleetFilter === 'rented') {
+      return sortedFleetVehicles.filter((vehicle) => isVehicleRented(vehicle))
+    }
+    return sortedFleetVehicles
+  }, [sortedFleetVehicles, fleetFilter])
 
   if (loading) {
     return <LoadingScreen />
@@ -226,20 +249,41 @@ export default function Dashboard() {
       </div>
 
       <div className="rounded-[32px] border border-white/10 bg-slate-900/80 p-8 shadow-xl shadow-black/30">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm uppercase tracking-[0.35em] text-amber-300/80">Frota</p>
             <h3 className="mt-2 text-2xl font-semibold text-white">Veículos cadastrados</h3>
           </div>
+
+          <div className="inline-flex gap-2 rounded-2xl border border-white/10 bg-slate-950/70 p-1">
+            {[
+              { value: 'all', label: 'Todos' },
+              { value: 'available', label: 'Disponíveis' },
+              { value: 'rented', label: 'Alugados' },
+            ].map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setFleetFilter(option.value)}
+                className={`rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition ${
+                  fleetFilter === option.value ? 'bg-amber-300/15 text-amber-200' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {overview.vehicles.length === 0 ? (
+        {filteredFleetVehicles.length === 0 ? (
           <p className="mt-6 rounded-3xl border border-white/10 bg-slate-950/50 p-6 text-sm text-slate-400">
-            Nenhum veículo encontrado. Verifique a tabela <strong>vehicles</strong> no Supabase.
+            {overview.vehicles.length === 0
+              ? <>Nenhum veículo encontrado. Verifique a tabela <strong>vehicles</strong> no Supabase.</>
+              : 'Nenhum veículo nessa situação.'}
           </p>
         ) : (
           <div className="mt-6 grid gap-4 md:grid-cols-2">
-            {overview.vehicles.map((vehicle) => (
+            {filteredFleetVehicles.map((vehicle) => (
               <div key={vehicle.id} className="rounded-[28px] border border-white/10 bg-slate-950/80 p-5 shadow-sm shadow-black/10">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>

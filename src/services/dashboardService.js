@@ -9,22 +9,17 @@ import { listUpcomingCharges, listOverdueCharges } from './chargesService.js'
  * não existia como calcular isso).
  */
 export async function fetchOverviewData() {
+  // Frota inteira, sem limite -- a seção "Veículos cadastrados" agora tem
+  // filtro Todos/Disponíveis/Alugados (Dashboard.jsx), então precisa dos
+  // veículos todos, não só os 8 mais recentes. A frota é pequena, então
+  // uma consulta sem paginação não é problema.
   const { data: vehicles, error: vehiclesError } = await supabase
     .from('vehicles')
     .select('id,plate,model,color,current_km,status,maintenance')
     .order('created_at', { ascending: false })
-    .limit(8)
 
   if (vehiclesError) {
     return { data: null, error: vehiclesError }
-  }
-
-  const { data: allVehicles, error: allVehiclesError } = await supabase
-    .from('vehicles')
-    .select('status,maintenance')
-
-  if (allVehiclesError) {
-    return { data: null, error: allVehiclesError }
   }
 
   const [{ data: upcomingCharges, error: upcomingError }, { data: overdueCharges, error: overdueError }] = await Promise.all([
@@ -40,7 +35,7 @@ export async function fetchOverviewData() {
     return { data: null, error: overdueError }
   }
 
-  const { rentedCount, availableCount, maintenanceCount } = summarizeVehicleStatuses(allVehicles)
+  const { rentedCount, availableCount, maintenanceCount } = summarizeVehicleStatuses(vehicles)
 
   return {
     data: {

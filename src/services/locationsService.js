@@ -112,15 +112,20 @@ export async function endLocation(id, payload) {
       console.warn('Falha ao atualizar o status da caução para devolução:', depositError.message)
     }
 
-    // Encerramento antecipado: cobranças futuras que ainda não venceram
-    // não fazem mais sentido -- sem isso, elas ficariam "Pendente" pra
-    // sempre e, quando a data passasse, apareceriam como atrasadas de uma
-    // locação que já acabou. Não apaga a linha (mantém rastreabilidade),
-    // só marca como Cancelada -- listUpcomingCharges/listOverdueCharges só
-    // olham status='Pendente', então isso já basta pra sumir das duas telas.
+    // Encerramento (no prazo ou antecipado): cobranças futuras que ainda
+    // não venceram (due_date posterior à data efetiva de encerramento) não
+    // fazem mais sentido -- sem isso, elas ficariam "Pendente" pra sempre
+    // e, quando a data passasse, apareceriam como atrasadas de uma locação
+    // que já acabou. Não apaga a linha (mantém rastreabilidade pro
+    // Histórico), só marca como "Cancelada por encerramento da locação".
+    // O que já venceu (due_date <= actual_end_date) fica intocado, pago ou
+    // não -- é passado e não é este fluxo que decide isso.
+    // listUpcomingCharges/listOverdueCharges também têm proteção redundante
+    // (só consideram locação/contrato ativos), mas este update é a primeira
+    // linha de defesa.
     const { error: chargesError } = await supabase
       .from('contract_charges')
-      .update({ status: CHARGE_STATUS.CANCELADA })
+      .update({ status: CHARGE_STATUS.CANCELADA_ENCERRAMENTO })
       .eq('contract_id', rental.contract_id)
       .eq('status', CHARGE_STATUS.PENDENTE)
       .gt('due_date', payload.actual_end_date)

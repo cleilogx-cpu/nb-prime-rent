@@ -3,6 +3,7 @@ import { AlertTriangle } from 'lucide-react'
 import { listDeposits } from '../services/depositsService.js'
 import DepositCard from '../components/DepositCard.jsx'
 import DepositRefundDialog from '../components/DepositRefundDialog.jsx'
+import DepositTermsDialog from '../components/DepositTermsDialog.jsx'
 import PaymentForm from '../components/PaymentForm.jsx'
 import Toast from '../components/Toast.jsx'
 import LoadingScreen from '../components/LoadingScreen.jsx'
@@ -18,6 +19,7 @@ export default function Deposits() {
   const [showPaymentForm, setShowPaymentForm] = useState(false)
   const [selectedDeposit, setSelectedDeposit] = useState(null)
   const [showRefundDialog, setShowRefundDialog] = useState(false)
+  const [showTermsDialog, setShowTermsDialog] = useState(false)
 
   const loadData = async () => {
     setLoading(true)
@@ -45,6 +47,11 @@ export default function Deposits() {
     setShowRefundDialog(true)
   }
 
+  const openTerms = (deposit) => {
+    setSelectedDeposit(deposit)
+    setShowTermsDialog(true)
+  }
+
   const handleSaved = async () => {
     setShowPaymentForm(false)
     setSelectedDeposit(null)
@@ -56,6 +63,13 @@ export default function Deposits() {
     setShowRefundDialog(false)
     setSelectedDeposit(null)
     setToast({ message: 'Devolução registrada com sucesso.', type: 'success' })
+    await loadData()
+  }
+
+  const handleTermsSaved = async () => {
+    setShowTermsDialog(false)
+    setSelectedDeposit(null)
+    setToast({ message: 'Condição combinada salva com sucesso.', type: 'success' })
     await loadData()
   }
 
@@ -110,6 +124,7 @@ export default function Deposits() {
               deposit={deposit}
               onRegisterReceipt={() => openRegisterReceipt(deposit)}
               onRefund={() => openRefund(deposit)}
+              onEditTerms={() => openTerms(deposit)}
             />
           ))}
         </div>
@@ -137,6 +152,16 @@ export default function Deposits() {
           setSelectedDeposit(null)
         }}
         onConfirm={handleRefunded}
+      />
+
+      <DepositTermsDialog
+        open={showTermsDialog}
+        deposit={selectedDeposit}
+        onClose={() => {
+          setShowTermsDialog(false)
+          setSelectedDeposit(null)
+        }}
+        onConfirm={handleTermsSaved}
       />
     </div>
   )

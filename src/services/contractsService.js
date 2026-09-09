@@ -190,7 +190,7 @@ export async function signContract(id, { signed_document_url } = {}) {
     .maybeSingle()
 
   if (existingActiveRental) {
-    return { data: null, error: { message: 'Este veículo já tem uma locação ativa. Encerre-a antes de assinar um novo contrato.' } }
+    return { data: null, error: { message: 'Não é possível ativar este contrato. O veículo possui uma locação ativa. Encerre a locação atual antes de ativar o novo contrato.' } }
   }
 
   const { data: rental, error: rentalError } = await supabase

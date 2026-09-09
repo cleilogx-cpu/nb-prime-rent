@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient.js'
+import { formatCPF } from '../lib/format.js'
 
 const TABLE = 'tenants'
 
@@ -7,10 +8,15 @@ const TABLE = 'tenants'
 // partir daqui. Contratos novos sempre gravam os 7 campos estruturados;
 // quem lê o endereço pra exibir/imprimir usa formatTenantAddress
 // (src/lib/format.js), que cai pro campo antigo só se os novos vierem vazios.
+//
+// CPF já chega mascarado da UI (ContractForm aplica formatCPF no onChange);
+// aplicar de novo aqui é só uma segurança pra qualquer entrada que não passe
+// pelo formulário (mantém o mesmo formato COM pontuação já usado no banco --
+// nunca migramos pra guardar só dígitos, ver comentário em src/lib/format.js).
 function normalizeTenantPayload(payload) {
   return {
     full_name: payload.full_name?.trim() ?? null,
-    cpf: payload.cpf?.trim() ?? null,
+    cpf: payload.cpf ? formatCPF(payload.cpf) : null,
     rg: payload.rg?.trim() ?? null,
     phone: payload.phone?.trim() ?? null,
     whatsapp: payload.whatsapp?.trim() || payload.phone?.trim() || null,
@@ -70,7 +76,7 @@ export async function updateTenant(id, payload) {
  * Usado no fluxo de criação de contrato, onde o locatário é digitado na hora.
  */
 export async function findOrCreateTenant(payload) {
-  const cpf = payload.cpf?.trim()
+  const cpf = payload.cpf ? formatCPF(payload.cpf) : ''
 
   if (cpf) {
     const { data: existing, error: searchError } = await supabase

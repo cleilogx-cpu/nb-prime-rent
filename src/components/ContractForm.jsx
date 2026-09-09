@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { listVehicles } from '../services/vehiclesService.js'
 import { addMonthsToDate, deriveWeeksFromDates } from '../lib/contractLogic.js'
 import { PERIODICITY, PERIODICITY_LABELS } from '../lib/constants.js'
+import { formatCPF } from '../lib/format.js'
 
 const DURATION_PRESETS = [
   { label: '1 mês', months: 1 },
@@ -214,7 +215,14 @@ export default function ContractForm({ open, onClose, onSubmit, loading }) {
               </label>
               <label className="flex flex-col gap-2 text-sm text-slate-300">
                 <span>CPF</span>
-                <input value={form.tenant.cpf} onChange={(event) => handleTenantChange('cpf', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" placeholder="000.000.000-00" />
+                <input
+                  value={form.tenant.cpf}
+                  onChange={(event) => handleTenantChange('cpf', formatCPF(event.target.value))}
+                  inputMode="numeric"
+                  maxLength={14}
+                  className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none"
+                  placeholder="000.000.000-00"
+                />
                 {errors.cpf ? <span className="text-xs text-rose-300">{errors.cpf}</span> : null}
               </label>
               <label className="flex flex-col gap-2 text-sm text-slate-300">

@@ -342,6 +342,25 @@ export async function cancelPayment(id, payload = {}) {
     // cancelado não deve continuar contando como dinheiro recebido.
     if (data.receipt_type === RECEIPT_TYPE.RENT) {
       await unmatchChargeForPayment(data.id)
+
+      // Devolve a vez pro sócio que tinha recebido este pagamento --
+      // cancelar não pode "consumir" a alternância. `next_destination`
+      // sempre guarda o valor já invertido (quem paga gera `flip(quem
+      // recebeu)`, e o fallback de leitura em getLastConfirmedPartnerBeneficiary
+      // inverte de novo) -- por isso o reverte aqui também precisa passar
+      // pelo mesmo `calculateNextPartnerBeneficiary`, não gravar
+      // `data.destination` puro (isso duplicaria a inversão e mandaria a
+      // próxima cobrança pra pessoa errada). Desfaz exatamente o avanço que
+      // a criação deste pagamento tinha feito (seção 21).
+      if (
+        data.finance_model === 'partners' &&
+        (data.destination === 'Clei' || data.destination === 'Edson')
+      ) {
+        await updateVehicleNextDestination(
+          data.vehicle_id,
+          calculateNextPartnerBeneficiary(data.destination),
+        )
+      }
     } else if (data.receipt_type === RECEIPT_TYPE.DEPOSIT && data.contract_id) {
       await recalculateReceivedAmount(data.contract_id)
     }
@@ -369,12 +388,18 @@ export async function getPaymentById(id) {
 // NOTA (Fase 2): finance_model virou parte do contrato (pode mudar por
 // locatário). next_destination continua no veículo de propósito — é a fila
 // de rodízio Clei/Edson daquele carro, contínua entre contratos.
+//
+// Só recebimento de Aluguel conta pra fila -- Caução não deve alternar nem
+// consumir a vez de ninguém (ela ainda é atribuída a um sócio pra saber pra
+// quem foi o dinheiro, mas isso é decidido em createPaymentWithDestinationRules
+// sem nunca avançar a fila).
 export async function getLastConfirmedPartnerBeneficiary(vehicleId) {
   const { data, error } = await supabase
     .from(PAYMENT_TABLE)
     .select('destination,created_at')
     .eq('vehicle_id', vehicleId)
     .eq('finance_model', 'partners')
+    .eq('receipt_type', RECEIPT_TYPE.RENT)
     .eq('is_cancelled', false)
     .in('destination', ['Clei', 'Edson'])
     .order('created_at', { ascending: false })
@@ -464,7 +489,9 @@ export async function createPaymentWithDestinationRules(payload) {
     destination,
   })
 
-  if (!result.error && financeModel === 'partners') {
+  // Só Aluguel avança a fila -- Caução usa o mesmo `beneficiary` (pra saber
+  // pra quem foi o dinheiro) mas nunca consome a vez de ninguém (seção 20).
+  if (!result.error && financeModel === 'partners' && payload.receipt_type === RECEIPT_TYPE.RENT) {
     const followingBeneficiary =
       calculateNextPartnerBeneficiary(beneficiary)
 

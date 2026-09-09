@@ -126,11 +126,19 @@ export function buildContractDocx(contract) {
         children.push(textParagraph(section.text, { size: 20, align: AlignmentType.JUSTIFIED }))
         break
       case 'list':
+        // JUSTIFIED aqui também (não só nos parágrafos corridos) -- as
+        // listas de obrigações do locatário/locador têm itens longos que
+        // quebram linha, e ficavam alinhadas só à esquerda por não terem
+        // essa propriedade configurada (a causa mais provável do "cláusulas
+        // quebradas visualmente" relatado depois do teste). Itens curtos
+        // (dados do veículo, cronograma) não mudam de aparência -- justify
+        // só afeta linha que quebra.
         section.items.forEach((item) => {
           if (section.ordered) {
             children.push(
               new Paragraph({
                 numbering: { reference: ORDERED_LIST_REFERENCE, level: 0 },
+                alignment: AlignmentType.JUSTIFIED,
                 spacing: { after: 80 },
                 children: [new TextRun({ text: item, size: 20 })],
               }),
@@ -139,6 +147,7 @@ export function buildContractDocx(contract) {
             children.push(
               new Paragraph({
                 bullet: { level: 0 },
+                alignment: AlignmentType.JUSTIFIED,
                 spacing: { after: 80 },
                 children: [new TextRun({ text: item, size: 20 })],
               }),

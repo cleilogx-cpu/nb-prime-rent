@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabaseClient.js'
 import { generatePaymentSchedule } from '../lib/contractLogic.js'
-import { CHARGE_STATUS } from '../lib/constants.js'
+import { CHARGE_STATUS, RENTAL_STATUS, CONTRACT_STATUS } from '../lib/constants.js'
 
 const TABLE = 'contract_charges'
 
@@ -40,17 +40,33 @@ export async function generateChargesForContract(contract, rental) {
   return { data: data ?? [], error }
 }
 
+// Select usado pelas duas listas do Dashboard (upcoming/overdue). `!inner`
+// nas duas tabelas embutidas é o que transforma o filtro de status delas
+// (abaixo) numa condição de fato -- sem `!inner` o Postgrest ignoraria o
+// filtro embutido e traria a cobrança mesmo com a locação/contrato não
+// ativos. Isso é proteção redundante ao cancelamento feito em
+// locationsService.endLocation: mesmo que uma cobrança fique "Pendente"
+// por engano (dado antigo de antes desta lógica existir, edição direta no
+// banco, bug futuro etc.), ela só aparece aqui se a locação estiver
+// realmente "Ativa" e o contrato realmente "Ativo" -- o que já cobre
+// qualquer cobrança de locação/contrato encerrado ou cancelado, incluindo
+// as com due_date posterior à data efetiva de encerramento.
+const ACTIVE_CHARGE_SELECT = '*, contracts!inner(contract_number, status), vehicles(plate, model), rentals!inner(status)'
+
 /**
  * Próximos vencimentos: cobranças pendentes com vencimento hoje ou no
- * futuro, mais próximas primeiro. Usado na Visão Geral do Dashboard.
+ * futuro, mais próximas primeiro, de locações/contratos ativos. Usado na
+ * Visão Geral do Dashboard.
  */
 export async function listUpcomingCharges(limit = 8) {
   const today = new Date().toISOString().slice(0, 10)
 
   const { data, error } = await supabase
     .from(TABLE)
-    .select('*, contracts(contract_number), vehicles(plate, model)')
+    .select(ACTIVE_CHARGE_SELECT)
     .eq('status', CHARGE_STATUS.PENDENTE)
+    .eq('rentals.status', RENTAL_STATUS.ATIVA)
+    .eq('contracts.status', CONTRACT_STATUS.ATIVO)
     .gte('due_date', today)
     .order('due_date', { ascending: true })
     .limit(limit)
@@ -59,17 +75,19 @@ export async function listUpcomingCharges(limit = 8) {
 }
 
 /**
- * Pagamentos atrasados: cobranças pendentes com vencimento já passado.
- * `overdue_days` é calculado aqui em cima da data de hoje -- não fica
- * gravado, porque "hoje" muda todo dia.
+ * Pagamentos atrasados: cobranças pendentes com vencimento já passado, de
+ * locações/contratos ativos. `overdue_days` é calculado aqui em cima da
+ * data de hoje -- não fica gravado, porque "hoje" muda todo dia.
  */
 export async function listOverdueCharges(limit = 30) {
   const today = new Date().toISOString().slice(0, 10)
 
   const { data, error } = await supabase
     .from(TABLE)
-    .select('*, contracts(contract_number), vehicles(plate, model)')
+    .select(ACTIVE_CHARGE_SELECT)
     .eq('status', CHARGE_STATUS.PENDENTE)
+    .eq('rentals.status', RENTAL_STATUS.ATIVA)
+    .eq('contracts.status', CONTRACT_STATUS.ATIVO)
     .lt('due_date', today)
     .order('due_date', { ascending: true })
     .limit(limit)

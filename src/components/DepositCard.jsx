@@ -9,7 +9,7 @@ function statusStyle(status) {
   return 'border-rose-400/20 bg-rose-500/10 text-rose-200' // Pendente
 }
 
-export default function DepositCard({ deposit, onRegisterReceipt, onRefund }) {
+export default function DepositCard({ deposit, onRegisterReceipt, onRefund, onEditTerms }) {
   const totalAmount = Number(deposit.total_amount || 0)
   const receivedAmount = Number(deposit.received_amount || 0)
   const balance = Math.max(0, totalAmount - receivedAmount)
@@ -47,9 +47,16 @@ export default function DepositCard({ deposit, onRegisterReceipt, onRefund }) {
         </div>
       </div>
 
-      {deposit.agreed_terms ? (
-        <p className="mt-4 text-xs text-slate-400"><span className="text-slate-500">Condição combinada:</span> {deposit.agreed_terms}</p>
-      ) : null}
+      <div className="mt-4 flex items-start justify-between gap-3">
+        {deposit.agreed_terms ? (
+          <p className="text-xs text-slate-400"><span className="text-slate-500">Condição combinada:</span> {deposit.agreed_terms}</p>
+        ) : (
+          <p className="text-xs text-slate-500">Nenhuma condição combinada registrada.</p>
+        )}
+        <button type="button" onClick={onEditTerms} className="shrink-0 text-xs font-medium text-amber-300 underline-offset-2 hover:underline">
+          {deposit.agreed_terms ? 'Editar' : 'Registrar'}
+        </button>
+      </div>
 
       {deposit.status === DEPOSIT_STATUS.DEVOLVIDA ? (
         <p className="mt-4 text-sm text-slate-400">

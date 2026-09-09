@@ -49,6 +49,35 @@ export function formatTenantAddress(tenant) {
   return [line1, line2, line3, zip].filter(Boolean).join(', ') || 'Não informado'
 }
 
+/**
+ * Máscara progressiva de CPF (000.000.000-00) -- usada no `onChange` do
+ * campo de CPF do contrato, pra formatar enquanto o usuário digita. Aceita
+ * texto já parcialmente formatado (redigita em cima do que já tinha) porque
+ * primeiro tira tudo que não é dígito e reconstrói do zero. Limita a 11
+ * dígitos -- dígitos extras são descartados, não empurram o CPF pra frente.
+ *
+ * Decisão: continua armazenando o CPF JÁ formatado (com pontuação) no banco,
+ * exatamente como sempre foi feito -- não passamos a guardar só dígitos,
+ * porque os locatários já cadastrados têm CPF com pontuação, e mudar o
+ * formato de armazenamento quebraria a busca exata por CPF em
+ * `findOrCreateTenant` pros registros antigos. Isso é só máscara de digitação
+ * -- o dado final gravado é o mesmo formato de sempre.
+ */
+export function formatCPF(value) {
+  const digits = String(value ?? '').replace(/\D/g, '').slice(0, 11)
+
+  if (digits.length <= 3) {
+    return digits
+  }
+  if (digits.length <= 6) {
+    return `${digits.slice(0, 3)}.${digits.slice(3)}`
+  }
+  if (digits.length <= 9) {
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`
+  }
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`
+}
+
 export function formatDate(value) {
   if (!value) {
     return 'Não informado'

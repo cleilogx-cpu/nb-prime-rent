@@ -142,6 +142,23 @@ export async function markDepositPendingRefund(contractId) {
 }
 
 /**
+ * Registra como foi combinado o pagamento do saldo da caução (ex: "Entrada
+ * R$1.000 + duas parcelas de R$500"). É só texto informativo -- nunca conta
+ * como dinheiro recebido; o que efetivamente entrou continua vindo só de
+ * recalculateReceivedAmount, somando os lançamentos reais em Recebimentos.
+ */
+export async function updateAgreedTerms(depositId, agreedTerms) {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({ agreed_terms: agreedTerms || null })
+    .eq('id', depositId)
+    .select('*')
+    .single()
+
+  return { data, error }
+}
+
+/**
  * Registra a devolução da caução. Isso é SAÍDA de dinheiro -- nunca cria
  * linha em Recebimentos (seção 13 do pedido).
  */

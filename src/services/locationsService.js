@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient.js'
 import { markDepositPendingRefund } from './depositsService.js'
+import { CHARGE_STATUS } from '../lib/constants.js'
 
 const TABLE = 'rentals'
 const RENTAL_SELECT = '*, tenants(*), vehicles(*), contracts(contract_number, finance_model)'
@@ -109,6 +110,23 @@ export async function endLocation(id, payload) {
     const { error: depositError } = await markDepositPendingRefund(rental.contract_id)
     if (depositError) {
       console.warn('Falha ao atualizar o status da caução para devolução:', depositError.message)
+    }
+
+    // Encerramento antecipado: cobranças futuras que ainda não venceram
+    // não fazem mais sentido -- sem isso, elas ficariam "Pendente" pra
+    // sempre e, quando a data passasse, apareceriam como atrasadas de uma
+    // locação que já acabou. Não apaga a linha (mantém rastreabilidade),
+    // só marca como Cancelada -- listUpcomingCharges/listOverdueCharges só
+    // olham status='Pendente', então isso já basta pra sumir das duas telas.
+    const { error: chargesError } = await supabase
+      .from('contract_charges')
+      .update({ status: CHARGE_STATUS.CANCELADA })
+      .eq('contract_id', rental.contract_id)
+      .eq('status', CHARGE_STATUS.PENDENTE)
+      .gt('due_date', payload.actual_end_date)
+
+    if (chargesError) {
+      console.warn('Falha ao cancelar as cobranças futuras da locação encerrada:', chargesError.message)
     }
   }
 

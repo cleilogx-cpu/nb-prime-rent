@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, CarFront, Search } from 'lucide-react'
 import { endLocation, listActiveLocations } from '../services/locationsService.js'
+import { listDeposits } from '../services/depositsService.js'
 import { formatCurrency, formatDate } from '../services/locationLogic.js'
 import { PERIODICITY_LABELS } from '../lib/constants.js'
 import LoadingScreen from '../components/LoadingScreen.jsx'
@@ -70,6 +71,7 @@ function LocationCard({ location, onView, onEnd }) {
 
 export default function Locations() {
   const [locations, setLocations] = useState([])
+  const [deposits, setDeposits] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
@@ -81,7 +83,10 @@ export default function Locations() {
 
   const loadData = async () => {
     setLoading(true)
-    const { data, error: fetchError } = await listActiveLocations({ search })
+    const [{ data, error: fetchError }, { data: depositsData }] = await Promise.all([
+      listActiveLocations({ search }),
+      listDeposits(),
+    ])
 
     if (fetchError) {
       setError(fetchError.message || 'Falha ao carregar locações.')
@@ -90,6 +95,7 @@ export default function Locations() {
       setError(null)
       setLocations(data ?? [])
     }
+    setDeposits(depositsData ?? [])
     setLoading(false)
   }
 
@@ -242,6 +248,36 @@ export default function Locations() {
                   </div>
                 </div>
               </div>
+
+              {(() => {
+                const deposit = deposits.find((item) => item.contract_id === selectedLocation.contract_id)
+                if (!deposit) {
+                  return null
+                }
+                const totalAmount = Number(deposit.total_amount || 0)
+                const receivedAmount = Number(deposit.received_amount || 0)
+                const balance = Math.max(0, totalAmount - receivedAmount)
+
+                return (
+                  <div className="rounded-[24px] border border-white/10 bg-slate-900/70 p-5">
+                    <p className="text-sm uppercase tracking-[0.35em] text-slate-500">Caução</p>
+                    <div className="mt-4 grid gap-4 md:grid-cols-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Prevista</p>
+                        <p className="mt-2 text-base font-medium text-white">{formatCurrency(totalAmount)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Recebida</p>
+                        <p className="mt-2 text-base font-medium text-white">{formatCurrency(receivedAmount)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Saldo</p>
+                        <p className="mt-2 text-base font-medium text-white">{formatCurrency(balance)}</p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
 
             <div className="mt-6 flex justify-end">

@@ -1,5 +1,19 @@
 # NB Prime Rent — contexto do projeto (handoff de sessão anterior no chat)
 
+## Segurança — corrigido em 11/09/2026, não reabrir
+
+O projeto Supabase "Dolphin Rent" estava com **"Allow new users to sign up"
+ATIVADO** e **"Confirm email" DESATIVADO** (Authentication → Sign In/
+Providers). Como todas as políticas RLS das tabelas de negócio são
+`for authenticated using (true)` (sem checar `auth.uid()`), isso permitia
+que QUALQUER PESSOA na internet criasse conta via API (usando só a `anon
+key`, pública, embutida no JS do site) e tivesse acesso total de leitura/
+escrita a locatários (CPF, CNH, endereço), contratos e financeiro — sem
+precisar de nenhuma tela do app. **"Allow new users to sign up" foi
+desativado** (confirmado persistido). Novos usuários agora só podem ser
+criados manualmente em Authentication → Users → Invite. NÃO reative isso
+sem antes revisar as políticas RLS pra restringir por usuário/role.
+
 Sistema de gestão de locação de veículos elétricos (frota da NB Prime Capital),
 React + Vite + Tailwind + Supabase, deploy na Vercel. O dono do projeto
 (cliente) não é desenvolvedor — explique tudo em português, de forma simples,
@@ -21,10 +35,13 @@ Veículo → Contrato → Locação ativa → Encerramento → Histórico
 - **Locações (`rentals`)**: nascem automaticamente quando o contrato é
   marcado como assinado (`contractsService.signContract`). Isso também muda
   o veículo pra "Alugado". Não existe cadastro manual de locação.
-- **Encerramento → Histórico**: AINDA NÃO IMPLEMENTADO. Falta o formulário
-  curto (data real de encerramento, km final, avaliação Boa/Ruim, observação)
-  que muda a locação pra "Encerrada", libera o veículo, e faz o contrato
-  aparecer no Histórico (que hoje é só uma página placeholder).
+- **Encerramento → Histórico**: IMPLEMENTADO (PR#2, PR#7). `EndLocationDialog.jsx`
+  + `locationsService.js` fazem o encerramento (libera veículo, cancela
+  cobranças futuras em `contract_charges`, mexe na caução). Páginas
+  `Historico.jsx` e `Deposits.jsx` (Cauções) já existem e estão ligadas nas
+  rotas — não são mais placeholder. Esta nota "AINDA NÃO IMPLEMENTADO" ficou
+  desatualizada por várias sessões (ver "Lição crítica" abaixo) — **não
+  confie neste arquivo sem confirmar com `git log` e o código real primeiro**.
 
 ## Decisões de negócio importantes
 
@@ -61,13 +78,40 @@ mexendo direto pela UI do Supabase). Confirme sempre com
   de um problema de colar SQL longo no editor do Supabase que corrompia o
   texto). Não precisa rodar de novo — é só o registro do que já existe.
 
-## Lições da sessão anterior (evitar repetir)
+## Lição CRÍTICA de 11/09/2026 — pasta local desatualizada, NÃO repetir
 
-- Transferir arquivos pro Codespaces por arrastar-e-soltar é pouco confiável
-  pra pastas grandes — vários arquivos ficaram desatualizados silenciosamente
-  (`package.json`, migrations, `VehicleForm.jsx`, `dashboardService.js`).
-  Se for usar Codespaces de novo, prefira `git pull`/`git clone` a
-  arrastar arquivos manualmente.
+O cliente mudou de máquina e abriu uma sessão com uma pasta local
+(`nb-prime-rent-final/nb-prime-rent-main`, fora de qualquer controle de
+versão) que era uma cópia ESTÁTICA de 06/09 — de ANTES de 10 Pull Requests
+já mergeados no GitHub (`cleilogx-cpu/nb-prime-rent`, branch `main`,
+último commit 09/09) que implementaram: arquitetura V2 completa,
+Encerramento→Histórico, Cauções (`Deposits.jsx`), cobranças
+(`chargesService.js`), reconciliação do Dashboard, máscara de CPF, etc.
+
+Uma sessão anterior trabalhou 1h+ nessa pasta desatualizada sem perceber,
+porque: (1) a busca inicial por "encerramento" foi só por nome de arquivo
+em português e não achou o componente em inglês (`EndContractDialog.jsx`,
+que por acaso era um rascunho órfão mesmo, mas por sorte não pelo motivo
+certo); (2) nunca foi feito `git log`/verificação de repositório remoto
+antes de assumir que a pasta local era a fonte da verdade; (3) o cliente só
+percebeu porque testou manualmente e notou "faltavam implementações".
+
+**Resolução**: a pasta antiga foi renomeada pra
+`nb-prime-rent-main-old-06set` (mantida só como backup, pode apagar depois
+de confirmar que está tudo certo) e o código real foi clonado do GitHub
+(`git clone https://github.com/cleilogx-cpu/nb-prime-rent.git`) pro lugar.
+A partir de agora esta pasta É um clone git de verdade — use `git pull`
+pra atualizar, nunca mais copie arquivos manualmente entre máquinas.
+
+**Regra pra qualquer sessão futura**: antes de dizer que uma feature "não
+existe" ou "não foi implementada", rode `git remote -v` e `git log --oneline -20`
+(se for repo git) pra confirmar que não há trabalho mais recente em outro
+lugar. Se a pasta não for um repo git, isso por si só é bandeira vermelha —
+pergunte ao cliente se existe um GitHub/Codespaces com a versão real antes
+de investigar a fundo ou implementar qualquer coisa "do zero".
+
+## Lições de sessões anteriores
+
 - `CREATE POLICY IF NOT EXISTS` não existe no Postgres — usar
   `DROP POLICY IF EXISTS` + `CREATE POLICY`.
 - SQL muito longo (~250 linhas) colado de uma vez no SQL Editor do Supabase
@@ -76,15 +120,15 @@ mexendo direto pela UI do Supabase). Confirme sempre com
 
 ## Próximos passos pendentes
 
-1. Confirmar que `npm install && npm run dev` roda limpo localmente com
-   este código (nunca foi testado localmente até agora, só em Codespaces
-   com problemas de sincronização de arquivo).
-2. Testar o fluxo completo: criar veículo → criar contrato → baixar
-   Word/PDF → marcar como assinado → ver locação aparecer em Locações →
-   registrar recebimento em Pagamentos.
-3. Implementar Encerramento (formulário curto) → Histórico automático
-   (última fase do desenho original).
-4. Point de atenção não resolvido: o Dashboard soma valores da tabela
-   antiga `payments`, enquanto a tela de Pagamentos usa `rental_payments`
-   — os números provavelmente não batem. Vale reconciliar quando mexer
-   no Dashboard.
+1. Confirmar visualmente (login real) que o fluxo completo funciona: criar
+   veículo → criar contrato → baixar Word/PDF → assinar → Locações →
+   Recebimentos → Encerrar locação → Histórico → Caução. `npm install` +
+   `npm run build` + `npm run dev` já rodam limpos (confirmado 11/09).
+2. `RenewContractDialog.jsx` e `ContractPreview.jsx` são código morto (não
+   importados em lugar nenhum) e ainda usam o campo antigo `weekly_rent`
+   em vez de `payment_amount`. Decidir com o cliente: implementar renovação
+   de contrato de verdade usando esses arquivos como base, ou apagá-los.
+3. Confirmar com o cliente se `rental_deposits`/`rental_deposit_transactions`
+   (caução "v1", mais simples) ainda estão em uso ou se `contract_deposits`
+   (caução "v2", ligada ao contrato, com devolução) os substituiu — as
+   duas tabelas existem em produção.

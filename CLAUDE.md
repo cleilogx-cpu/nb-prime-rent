@@ -1,5 +1,36 @@
 # NB Prime Rent — contexto do projeto (handoff de sessão anterior no chat)
 
+## Deploy Vercel — corrigido em 11/09/2026, não reabrir
+
+O domínio de produção `nb-prime-rent.vercel.app` ficou **preso num rollback
+manual de 06/08** (`7e73cfd`, código de ANTES da arquitetura V2) — ninguém
+fez isso de propósito recentemente, foi um "Instant Rollback" antigo que
+nunca foi desfeito. Sintoma: app quebrado com `column vehicles.tenant_name
+does not exist` (nome de coluna de antes da migração 004). Cada merge de PR
+desde então gerava um deployment "Production" novo e "Ready", mas o domínio
+NUNCA seguia — o Vercel mantém rollbacks manuais fixados até serem desfeitos
+explicitamente, e nem "Promote" nem "Redeploy" pelo menu de contexto
+resolviam isso sozinhos (o aviso amarelo no Overview do projeto dizia "to
+undo the rollback, promote to production or re-enable auto-assigning custom
+domains", mas isso não é auto-explicativo).
+
+**A causa raiz de verdade**: em Project Settings → Environments → Production,
+"Auto-Assign Custom Production Domains" estava **Disabled**. Ativei esse
+toggle e salvei — e a partir daí, um `git push` genuíno pro `main` (mesmo
+um commit vazio, `git commit --allow-empty`) finalmente moveu o domínio
+pro deployment novo e removeu o aviso de rollback. Promover um deployment
+já existente pela UI, sozinho, não bastava.
+
+**Se isso acontecer de novo** (app funcionando localmente mas quebrado no
+domínio publicado, erro de coluna/schema que não bate com o código atual):
+1. `curl -sD - -o /dev/null https://nb-prime-rent.vercel.app/` — se
+   `X-Vercel-Cache: HIT` com `Age` grande (horas/dias), é isso.
+2. Confira o Overview do projeto na Vercel — se tiver o aviso amarelo de
+   rollback, é isso.
+3. Vercel → Project Settings → Environments → Production → ligar
+   "Auto-Assign Custom Production Domains" → Save.
+4. `git commit --allow-empty -m "..." && git push origin main`.
+
 ## Segurança — corrigido em 11/09/2026, não reabrir
 
 O projeto Supabase "Dolphin Rent" estava com **"Allow new users to sign up"

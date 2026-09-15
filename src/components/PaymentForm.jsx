@@ -54,6 +54,10 @@ export default function PaymentForm({ open, onClose, locations = [], vehicles = 
   const selectedLocation = locations.find((location) => location.id === form.location_id)
   const selectedVehicle = vehicles.find((vehicle) => vehicle.id === form.vehicle_id)
   const availableDeposits = deposits.filter((deposit) => deposit.status !== 'Devolvida')
+  // Pra Caução, `location_id` fica vazio de propósito (a locação pode nem
+  // estar ativa ainda) -- o nome do locatário precisa vir do depósito
+  // selecionado, não de `locations` (que só tem locações ativas).
+  const selectedDeposit = deposits.find((deposit) => deposit.contract_id === form.contract_id)
 
   const handleReceiptTypeChange = (value) => {
     setForm((current) => ({
@@ -232,7 +236,7 @@ export default function PaymentForm({ open, onClose, locations = [], vehicles = 
 
               <label className="space-y-2">
                 <span className="text-sm font-medium text-slate-300">Locatário</span>
-                <input value={selectedLocation?.tenants?.full_name || ''} readOnly className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" />
+                <input value={(isDeposit ? selectedDeposit?.tenants?.full_name : selectedLocation?.tenants?.full_name) || ''} readOnly className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" />
               </label>
             </>
           ) : null}

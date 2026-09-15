@@ -9,14 +9,17 @@ function statusStyle(status) {
   return 'border-rose-400/20 bg-rose-500/10 text-rose-200' // Pendente
 }
 
-export default function DepositCard({ deposit, onRegisterReceipt, onRefund, onEditTerms }) {
+export default function DepositCard({ deposit, onRefund, onEditTerms }) {
   const totalAmount = Number(deposit.total_amount || 0)
   const receivedAmount = Number(deposit.received_amount || 0)
   const balance = Math.max(0, totalAmount - receivedAmount)
   const vehicle = deposit.vehicles
   const tenant = deposit.tenants
 
-  const canReceive = balance > 0 && deposit.status !== DEPOSIT_STATUS.A_DEVOLVER && deposit.status !== DEPOSIT_STATUS.DEVOLVIDA
+  // Recebimento de caução só se registra em Recebimentos > Novo recebimento
+  // (mesma tabela/lógica de todo recebimento) -- este módulo só acompanha
+  // saldo e cuida da devolução, que é saída de dinheiro e não tem lugar em
+  // Recebimentos.
   const canRefund = deposit.status === DEPOSIT_STATUS.A_DEVOLVER
 
   return (
@@ -65,18 +68,11 @@ export default function DepositCard({ deposit, onRegisterReceipt, onRefund, onEd
         </p>
       ) : null}
 
-      {(canReceive || canRefund) ? (
+      {canRefund ? (
         <div className="mt-5 flex flex-wrap gap-3">
-          {canReceive ? (
-            <button type="button" onClick={onRegisterReceipt} className="rounded-2xl border border-amber-300/20 bg-amber-300/15 px-3 py-2 text-sm font-semibold text-amber-200">
-              Registrar recebimento
-            </button>
-          ) : null}
-          {canRefund ? (
-            <button type="button" onClick={onRefund} className="rounded-2xl border border-sky-400/20 bg-sky-500/10 px-3 py-2 text-sm font-semibold text-sky-200">
-              Registrar devolução
-            </button>
-          ) : null}
+          <button type="button" onClick={onRefund} className="rounded-2xl border border-sky-400/20 bg-sky-500/10 px-3 py-2 text-sm font-semibold text-sky-200">
+            Registrar devolução
+          </button>
         </div>
       ) : null}
     </article>

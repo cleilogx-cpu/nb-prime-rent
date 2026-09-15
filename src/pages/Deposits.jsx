@@ -4,19 +4,13 @@ import { listDeposits } from '../services/depositsService.js'
 import DepositCard from '../components/DepositCard.jsx'
 import DepositRefundDialog from '../components/DepositRefundDialog.jsx'
 import DepositTermsDialog from '../components/DepositTermsDialog.jsx'
-import PaymentForm from '../components/PaymentForm.jsx'
 import Toast from '../components/Toast.jsx'
 import LoadingScreen from '../components/LoadingScreen.jsx'
-import { useAuth } from '../hooks/useAuth.jsx'
-import { RECEIPT_TYPE } from '../lib/constants.js'
-import { formatCurrency } from '../lib/format.js'
 
 export default function Deposits() {
-  const { user } = useAuth()
   const [deposits, setDeposits] = useState([])
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState({ message: '', type: 'success' })
-  const [showPaymentForm, setShowPaymentForm] = useState(false)
   const [selectedDeposit, setSelectedDeposit] = useState(null)
   const [showRefundDialog, setShowRefundDialog] = useState(false)
   const [showTermsDialog, setShowTermsDialog] = useState(false)
@@ -37,11 +31,6 @@ export default function Deposits() {
     loadData()
   }, [])
 
-  const openRegisterReceipt = (deposit) => {
-    setSelectedDeposit(deposit)
-    setShowPaymentForm(true)
-  }
-
   const openRefund = (deposit) => {
     setSelectedDeposit(deposit)
     setShowRefundDialog(true)
@@ -50,13 +39,6 @@ export default function Deposits() {
   const openTerms = (deposit) => {
     setSelectedDeposit(deposit)
     setShowTermsDialog(true)
-  }
-
-  const handleSaved = async () => {
-    setShowPaymentForm(false)
-    setSelectedDeposit(null)
-    setToast({ message: 'Recebimento de caução registrado com sucesso.', type: 'success' })
-    await loadData()
   }
 
   const handleRefunded = async () => {
@@ -72,22 +54,6 @@ export default function Deposits() {
     setToast({ message: 'Condição combinada salva com sucesso.', type: 'success' })
     await loadData()
   }
-
-  const lockedContext = selectedDeposit
-    ? {
-        receipt_type: RECEIPT_TYPE.DEPOSIT,
-        contract_id: selectedDeposit.contract_id,
-        vehicle_id: selectedDeposit.vehicle_id,
-        tenant_id: selectedDeposit.tenant_id,
-        finance_model: selectedDeposit.contracts?.finance_model || 'partners',
-        amount: Math.max(0, Number(selectedDeposit.total_amount || 0) - Number(selectedDeposit.received_amount || 0)),
-        notes: `${selectedDeposit.vehicles?.plate || ''} - ${selectedDeposit.tenants?.full_name || ''} (Caução)`,
-        vehicleLabel: `${selectedDeposit.vehicles?.plate || ''} — ${selectedDeposit.vehicles?.model || ''}`,
-        contractLabel: selectedDeposit.contracts?.contract_number || '',
-        tenantLabel: selectedDeposit.tenants?.full_name || '',
-        balanceLabel: formatCurrency(Math.max(0, Number(selectedDeposit.total_amount || 0) - Number(selectedDeposit.received_amount || 0))),
-      }
-    : null
 
   if (loading) {
     return <LoadingScreen />
@@ -122,27 +88,12 @@ export default function Deposits() {
             <DepositCard
               key={deposit.id}
               deposit={deposit}
-              onRegisterReceipt={() => openRegisterReceipt(deposit)}
               onRefund={() => openRefund(deposit)}
               onEditTerms={() => openTerms(deposit)}
             />
           ))}
         </div>
       )}
-
-      <PaymentForm
-        open={showPaymentForm}
-        onClose={() => {
-          setShowPaymentForm(false)
-          setSelectedDeposit(null)
-        }}
-        locations={[]}
-        vehicles={[]}
-        deposits={[]}
-        lockedContext={lockedContext}
-        onSaved={handleSaved}
-        userId={user?.id || user?.email}
-      />
 
       <DepositRefundDialog
         open={showRefundDialog}

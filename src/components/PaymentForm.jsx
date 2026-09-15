@@ -100,8 +100,12 @@ export default function PaymentForm({ open, onClose, locations = [], vehicles = 
     }))
   }
 
-  const handleSelectDeposit = (depositId) => {
-    const deposit = deposits.find((item) => item.id === depositId)
+  const handleSelectDeposit = (contractId) => {
+    // O <select> usa contract_id como value (cada caução é 1:1 com um
+    // contrato) -- procurar por deposit.id aqui nunca batia com nada, e o
+    // form ficava sem atualizar (o select controlado voltava sempre pro
+    // placeholder, dando a impressão de que não deixava escolher).
+    const deposit = deposits.find((item) => item.contract_id === contractId)
     if (!deposit) {
       return
     }

@@ -4,7 +4,7 @@ import {
   updatePayment,
   getLastConfirmedPartnerBeneficiary,
 } from '../services/paymentsService.js'
-import { PERIODICITY_LABELS, RECEIPT_TYPE } from '../lib/constants.js'
+import { CONTRACT_STATUS, PERIODICITY_LABELS, RECEIPT_TYPE } from '../lib/constants.js'
 import { formatCurrency } from '../lib/format.js'
 
 const todayIso = () => new Date().toISOString().slice(0, 10)
@@ -53,7 +53,12 @@ export default function PaymentForm({ open, onClose, locations = [], vehicles = 
 
   const selectedLocation = locations.find((location) => location.id === form.location_id)
   const selectedVehicle = vehicles.find((vehicle) => vehicle.id === form.vehicle_id)
-  const availableDeposits = deposits.filter((deposit) => deposit.status !== 'Devolvida')
+  // Só contrato com locação ativa recebe caução nova -- se já encerrou, o
+  // único movimento que falta é a devolução (feita em Cauções), nunca um
+  // recebimento novo.
+  const availableDeposits = deposits.filter(
+    (deposit) => deposit.status !== 'Devolvida' && deposit.contracts?.status === CONTRACT_STATUS.ATIVO,
+  )
   // Pra Caução, `location_id` fica vazio de propósito (a locação pode nem
   // estar ativa ainda) -- o nome do locatário precisa vir do depósito
   // selecionado, não de `locations` (que só tem locações ativas).

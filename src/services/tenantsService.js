@@ -30,6 +30,7 @@ function normalizeTenantPayload(payload) {
     address_state: payload.address_state?.trim().toUpperCase() ?? null,
     cnh_number: payload.cnh_number?.trim() ?? null,
     cnh_validity: payload.cnh_validity || null,
+    birth_date: payload.birth_date || null,
     pix_key: payload.pix_key?.trim() ?? null,
     observations: payload.observations?.trim() ?? null,
   }

@@ -78,6 +78,32 @@ export function formatCPF(value) {
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`
 }
 
+/**
+ * Normaliza um telefone de locatário pro formato exigido pelo link
+ * `wa.me` (código do país + DDD + número, só dígitos). Telefones já digitados
+ * com o 55 na frente são respeitados; os demais (10-11 dígitos, DDD+número,
+ * que é como o restante do sistema já grava) recebem o prefixo. Qualquer
+ * coisa fora desse formato (poucos dígitos, texto sem número) devolve `null`
+ * em vez de montar um link quebrado.
+ */
+export function buildWhatsAppLink(phone) {
+  const digits = String(phone ?? '').replace(/\D/g, '')
+
+  if (!digits) {
+    return null
+  }
+
+  if (digits.length === 12 || digits.length === 13) {
+    return `https://wa.me/${digits}`
+  }
+
+  if (digits.length === 10 || digits.length === 11) {
+    return `https://wa.me/55${digits}`
+  }
+
+  return null
+}
+
 export function formatDate(value) {
   if (!value) {
     return 'Não informado'

@@ -4,6 +4,7 @@ import { downloadContractDocx } from '../lib/contractDocx.js'
 import { downloadContractPdf } from '../lib/contractPdf.js'
 import { formatCurrency, formatDate, formatTenantAddress } from '../lib/format.js'
 import { PERIODICITY_LABELS } from '../lib/constants.js'
+import DocumentDossie from './DocumentDossie.jsx'
 
 const FINANCE_LABELS = { partners: 'Sócios', savings: 'Fundo' }
 
@@ -70,6 +71,10 @@ export default function ContractDetailsDrawer({ open, contract, onClose, onSign,
             <p className="mt-1 text-white">CPF: {tenant?.cpf || 'não informado'}</p>
             <p className="mt-1 text-white">{formatTenantAddress(tenant)}</p>
           </div>
+        </div>
+
+        <div className="mt-6">
+          <DocumentDossie contractId={contract.id} tenantId={contract.tenant_id} />
         </div>
 
         <div className="mt-6 space-y-3">

@@ -85,3 +85,34 @@ export const DEPOSIT_STATUS = {
   A_DEVOLVER: 'A devolver',
   DEVOLVIDA: 'Devolvida',
 }
+
+// Tipos de arquivo do dossiê digital (contract_documents). Ordem aqui é a
+// ordem de exibição no dossiê -- CNH/comprovante são enviados manualmente
+// (ou pelo wizard), os demais são gerados/anexados automaticamente pelo
+// próprio sistema nas fases seguintes (geração do contrato, assinatura).
+export const DOCUMENT_TYPE = {
+  CNH: 'cnh',
+  COMPROVANTE_RESIDENCIA: 'comprovante_residencia',
+  CONTRATO_GERADO_DOCX: 'contrato_gerado_docx',
+  CONTRATO_GERADO_PDF: 'contrato_gerado_pdf',
+  CONTRATO_ASSINADO_PDF: 'contrato_assinado_pdf',
+  ASSINATURA_IMAGEM: 'assinatura_imagem',
+}
+
+export const DOCUMENT_TYPE_LABELS = {
+  [DOCUMENT_TYPE.CNH]: 'CNH',
+  [DOCUMENT_TYPE.COMPROVANTE_RESIDENCIA]: 'Comprovante de residência',
+  [DOCUMENT_TYPE.CONTRATO_GERADO_DOCX]: 'Contrato (Word)',
+  [DOCUMENT_TYPE.CONTRATO_GERADO_PDF]: 'Contrato (PDF)',
+  [DOCUMENT_TYPE.CONTRATO_ASSINADO_PDF]: 'Contrato assinado',
+  [DOCUMENT_TYPE.ASSINATURA_IMAGEM]: 'Assinatura',
+}
+
+// Status de OCR de um documento (contract_documents.ocr_status).
+export const OCR_STATUS = {
+  PENDING: 'pending',
+  SUCCESS: 'success',
+  PARTIAL: 'partial',
+  FAILED: 'failed',
+  NOT_APPLICABLE: 'not_applicable',
+}

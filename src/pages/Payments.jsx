@@ -82,10 +82,6 @@ export default function Payments() {
   const [year, setYear] = useState(now.getFullYear())
   const [customStart, setCustomStart] = useState(monthRange(now.getFullYear(), now.getMonth() + 1).periodStart)
   const [customEnd, setCustomEnd] = useState(monthRange(now.getFullYear(), now.getMonth() + 1).periodEnd)
-  const [statusFilter, setStatusFilter] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState('')
-  const [financeFilter, setFinanceFilter] = useState('')
-  const [destinationFilter, setDestinationFilter] = useState('')
   const [vehicleFilter, setVehicleFilter] = useState('')
   const [contractFilter, setContractFilter] = useState('')
   const [hasSearched, setHasSearched] = useState(false)
@@ -142,21 +138,20 @@ export default function Payments() {
       })() : {}
       const searchText = `${payment.vehicle_id || ''} ${payment.notes || ''} ${metadata.locationTenant || ''}`.toLowerCase()
       const matchesSearch = !search || searchText.includes(search.toLowerCase())
-      const matchesStatus = !statusFilter || payment.status === statusFilter
-      const matchesMethod = !paymentMethod || payment.payment_method === paymentMethod
-      const matchesFinance = !financeFilter || metadata.financeModel === financeFilter
-      const matchesDestination = !destinationFilter || payment.destination === destinationFilter
       const matchesVehicle = !vehicleFilter || payment.vehicle_id === vehicleFilter
       const matchesContract = !contractFilter || payment.contract_id === contractFilter
       const paymentDate = payment.payment_date || ''
       const matchesPeriod = paymentDate >= periodStart && paymentDate <= periodEnd
-      return matchesSearch && matchesStatus && matchesMethod && matchesFinance && matchesDestination && matchesVehicle && matchesContract && matchesPeriod
+      return matchesSearch && matchesVehicle && matchesContract && matchesPeriod
     })
-  }, [payments, search, periodStart, periodEnd, statusFilter, paymentMethod, financeFilter, destinationFilter, vehicleFilter, contractFilter])
+  }, [payments, search, periodStart, periodEnd, vehicleFilter, contractFilter])
 
+  // Total recebido/cancelado e o gráfico usam exatamente os mesmos
+  // recebimentos filtrados acima -- pesquisa/veículo/contrato/período batem
+  // sempre entre os números e a lista, sem uma segunda fonte de verdade.
   const totals = useMemo(
-    () => computePaymentTotals({ payments, periodStart, periodEnd }),
-    [payments, periodStart, periodEnd],
+    () => computePaymentTotals({ payments: filteredPayments, periodStart, periodEnd }),
+    [filteredPayments, periodStart, periodEnd],
   )
 
   const resetToCurrentMonth = () => {
@@ -218,8 +213,35 @@ export default function Payments() {
             Novo recebimento
           </button>
         </div>
+      </section>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-2">
+      <section className="rounded-[32px] border border-white/10 bg-slate-900/80 p-6 shadow-xl shadow-black/30">
+        <PaymentFilters
+          search={search} setSearch={setSearch}
+          periodMode={periodMode} setPeriodMode={setPeriodMode}
+          month={month} setMonth={setMonth}
+          year={year} setYear={setYear}
+          customStart={customStart} setCustomStart={setCustomStart}
+          customEnd={customEnd} setCustomEnd={setCustomEnd}
+          onResetToCurrentMonth={resetToCurrentMonth}
+          vehicleFilter={vehicleFilter} setVehicleFilter={setVehicleFilter}
+          vehicles={vehicles}
+          contractFilter={contractFilter} setContractFilter={setContractFilter}
+          contracts={contracts}
+        />
+
+        <button
+          type="button"
+          onClick={() => setHasSearched(true)}
+          className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-300/15 px-4 py-3 text-sm font-semibold text-amber-200 transition hover:bg-amber-300/25"
+        >
+          <Search size={16} />
+          Consultar recebimentos
+        </button>
+      </section>
+
+      <section className="rounded-[32px] border border-white/10 bg-slate-900/80 p-6 shadow-xl shadow-black/30 sm:p-8">
+        <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-[24px] border border-amber-300/20 bg-amber-300/5 p-5">
             <p className="text-sm uppercase tracking-[0.35em] text-amber-300/80">Total recebido</p>
             <p className="mt-5 text-3xl font-semibold text-white">R$ {paidTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
@@ -236,35 +258,6 @@ export default function Payments() {
         <div className="mt-5">
           <PaymentsByVehicleChart payments={filteredPayments} vehicles={vehicles} />
         </div>
-      </section>
-
-      <section className="rounded-[32px] border border-white/10 bg-slate-900/80 p-6 shadow-xl shadow-black/30">
-        <PaymentFilters
-          search={search} setSearch={setSearch}
-          periodMode={periodMode} setPeriodMode={setPeriodMode}
-          month={month} setMonth={setMonth}
-          year={year} setYear={setYear}
-          customStart={customStart} setCustomStart={setCustomStart}
-          customEnd={customEnd} setCustomEnd={setCustomEnd}
-          onResetToCurrentMonth={resetToCurrentMonth}
-          statusFilter={statusFilter} setStatusFilter={setStatusFilter}
-          paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod}
-          financeFilter={financeFilter} setFinanceFilter={setFinanceFilter}
-          destinationFilter={destinationFilter} setDestinationFilter={setDestinationFilter}
-          vehicleFilter={vehicleFilter} setVehicleFilter={setVehicleFilter}
-          vehicles={vehicles}
-          contractFilter={contractFilter} setContractFilter={setContractFilter}
-          contracts={contracts}
-        />
-
-        <button
-          type="button"
-          onClick={() => setHasSearched(true)}
-          className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-300/15 px-4 py-3 text-sm font-semibold text-amber-200 transition hover:bg-amber-300/25"
-        >
-          <Search size={16} />
-          Consultar recebimentos
-        </button>
       </section>
 
       {loading ? (

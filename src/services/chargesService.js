@@ -51,7 +51,7 @@ export async function generateChargesForContract(contract, rental) {
 // realmente "Ativa" e o contrato realmente "Ativo" -- o que já cobre
 // qualquer cobrança de locação/contrato encerrado ou cancelado, incluindo
 // as com due_date posterior à data efetiva de encerramento.
-const ACTIVE_CHARGE_SELECT = '*, contracts!inner(contract_number, status), vehicles(plate, model), rentals!inner(status)'
+const ACTIVE_CHARGE_SELECT = '*, contracts!inner(contract_number, status), vehicles(plate, model), rentals!inner(status), tenants(full_name, phone, whatsapp, address_street, address_number, address_neighborhood, address_zip, address_complement, address_city, address_state, address)'
 
 /**
  * Próximos vencimentos: cobranças pendentes com vencimento hoje ou no

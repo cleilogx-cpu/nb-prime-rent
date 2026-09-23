@@ -73,6 +73,17 @@ export function monthRange(year, month) {
   }
 }
 
+/**
+ * Intervalo `YYYY-MM-DD` (início/fim) de um ano inteiro -- pro modo "Ano" do
+ * seletor de período (Dashboard/Recebimentos/Custos).
+ */
+export function yearRange(year) {
+  return {
+    periodStart: `${year}-01-01`,
+    periodEnd: `${year}-12-31`,
+  }
+}
+
 export const MONTH_LABELS = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',

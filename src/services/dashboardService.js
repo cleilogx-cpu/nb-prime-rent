@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabaseClient.js'
 import { summarizeVehicleStatuses } from '../lib/vehicleStatus.js'
 import { computePaymentTotals } from '../lib/paymentAggregation.js'
-import { listUpcomingCharges, listOverdueCharges } from './chargesService.js'
+import { listOverdueCharges } from './chargesService.js'
 
 /**
  * Visão Geral: status da frota + próximos vencimentos/atrasados
@@ -22,14 +22,7 @@ export async function fetchOverviewData() {
     return { data: null, error: vehiclesError }
   }
 
-  const [{ data: upcomingCharges, error: upcomingError }, { data: overdueCharges, error: overdueError }] = await Promise.all([
-    listUpcomingCharges(),
-    listOverdueCharges(),
-  ])
-
-  if (upcomingError) {
-    return { data: null, error: upcomingError }
-  }
+  const { data: overdueCharges, error: overdueError } = await listOverdueCharges()
 
   if (overdueError) {
     return { data: null, error: overdueError }
@@ -43,7 +36,6 @@ export async function fetchOverviewData() {
       rentedCount,
       availableCount,
       maintenanceCount,
-      upcomingCharges: upcomingCharges ?? [],
       overdueCharges: overdueCharges ?? [],
     },
     error: null,

@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, CarFront, Search } from 'lucide-react'
 import { endLocation, listActiveLocations } from '../services/locationsService.js'
 import { listDeposits } from '../services/depositsService.js'
+import { listOverdueCharges } from '../services/chargesService.js'
 import { formatCurrency, formatDate } from '../services/locationLogic.js'
+import { formatTenantAddress } from '../lib/format.js'
 import { PERIODICITY_LABELS } from '../lib/constants.js'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 import EndLocationDialog from '../components/EndLocationDialog.jsx'
 import Toast from '../components/Toast.jsx'
-
-const FINANCE_LABELS = { partners: 'Sócios', savings: 'Fundo' }
+import WhatsAppLink from '../components/WhatsAppLink.jsx'
 
 function LocationCard({ location, onView, onEnd }) {
   const vehicle = location.vehicles
@@ -46,14 +47,6 @@ function LocationCard({ location, onView, onEnd }) {
             <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Valor ({PERIODICITY_LABELS[location.periodicity] || 'Semanal'})</p>
             <p className="mt-2 text-base font-medium text-white">{formatCurrency(location.payment_amount)}</p>
           </div>
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Km inicial</p>
-            <p className="mt-2 text-base font-medium text-white">{location.initial_km ?? 'Não informado'}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Distribuição</p>
-            <p className="mt-2 text-base font-medium text-white">{FINANCE_LABELS[location.contracts?.finance_model] || 'Não informado'}</p>
-          </div>
         </div>
       </div>
 
@@ -72,6 +65,7 @@ function LocationCard({ location, onView, onEnd }) {
 export default function Locations() {
   const [locations, setLocations] = useState([])
   const [deposits, setDeposits] = useState([])
+  const [overdueCharges, setOverdueCharges] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
@@ -83,9 +77,10 @@ export default function Locations() {
 
   const loadData = async () => {
     setLoading(true)
-    const [{ data, error: fetchError }, { data: depositsData }] = await Promise.all([
+    const [{ data, error: fetchError }, { data: depositsData }, { data: overdueData }] = await Promise.all([
       listActiveLocations({ search }),
       listDeposits(),
+      listOverdueCharges(1000),
     ])
 
     if (fetchError) {
@@ -96,6 +91,7 @@ export default function Locations() {
       setLocations(data ?? [])
     }
     setDeposits(depositsData ?? [])
+    setOverdueCharges(overdueData ?? [])
     setLoading(false)
   }
 
@@ -224,6 +220,17 @@ export default function Locations() {
                     <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Contrato</p>
                     <p className="mt-2 text-base font-medium text-white">{selectedLocation.contracts?.contract_number || 'Não informado'}</p>
                   </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Telefone / WhatsApp</p>
+                    <p className="mt-2 flex items-center gap-2 text-base font-medium text-white">
+                      {selectedLocation.tenants?.phone || selectedLocation.tenants?.whatsapp || 'Não informado'}
+                      <WhatsAppLink phone={selectedLocation.tenants?.whatsapp || selectedLocation.tenants?.phone} />
+                    </p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Endereço</p>
+                    <p className="mt-2 text-base font-medium text-white">{formatTenantAddress(selectedLocation.tenants)}</p>
+                  </div>
                 </div>
               </div>
 
@@ -235,10 +242,6 @@ export default function Locations() {
                     <p className="mt-2 text-base font-medium text-white">{formatCurrency(selectedLocation.payment_amount)}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Km inicial</p>
-                    <p className="mt-2 text-base font-medium text-white">{selectedLocation.initial_km ?? 'Não informado'}</p>
-                  </div>
-                  <div>
                     <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Data início</p>
                     <p className="mt-2 text-base font-medium text-white">{formatDate(selectedLocation.start_date)}</p>
                   </div>
@@ -248,6 +251,36 @@ export default function Locations() {
                   </div>
                 </div>
               </div>
+
+              {(() => {
+                const chargesForContract = overdueCharges.filter(
+                  (charge) => charge.contract_id === selectedLocation.contract_id,
+                )
+                const isOverdue = chargesForContract.length > 0
+                const overdueTotal = chargesForContract.reduce((sum, charge) => sum + Number(charge.amount || 0), 0)
+
+                return (
+                  <div className="rounded-[24px] border border-white/10 bg-slate-900/70 p-5">
+                    <p className="text-sm uppercase tracking-[0.35em] text-slate-500">Situação do pagamento</p>
+                    <div className="mt-4 flex flex-wrap items-center gap-4">
+                      <span
+                        className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] ${
+                          isOverdue
+                            ? 'border-rose-400/20 bg-rose-500/10 text-rose-200'
+                            : 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200'
+                        }`}
+                      >
+                        {isOverdue ? 'Atrasado' : 'Em dia'}
+                      </span>
+                      {isOverdue ? (
+                        <p className="text-base font-medium text-white">
+                          {chargesForContract.length} cobrança(s) em atraso — {formatCurrency(overdueTotal)}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                )
+              })()}
 
               {(() => {
                 const deposit = deposits.find((item) => item.contract_id === selectedLocation.contract_id)

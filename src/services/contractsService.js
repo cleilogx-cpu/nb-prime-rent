@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient.js'
-import { findOrCreateTenant } from './tenantsService.js'
+import { findOrCreateTenant, updateTenant } from './tenantsService.js'
 import {
   addMonthsToDate,
   deriveWeeksFromDates,
@@ -135,8 +135,23 @@ export async function createContract(payload) {
   return { data, error }
 }
 
+/**
+ * Edita um contrato ainda em Rascunho (seção 10 do pedido) -- grava no MESMO
+ * contrato, nunca cria um novo. Quando `payload.tenant` vem preenchido (tela
+ * de edição reabre com os dados do locatário), atualiza o locatário também --
+ * antes esta função só tocava campos do próprio contrato e ignorava o
+ * locatário, então uma correção de telefone/endereço feita aqui nunca
+ * chegava em `tenants` (fonte única usada em Locações/Dashboard).
+ */
 export async function updateContract(id, payload) {
   const normalizedPayload = normalizeContractPayload(payload)
+
+  if (payload.tenant && payload.tenant_id) {
+    const { error: tenantError } = await updateTenant(payload.tenant_id, payload.tenant)
+    if (tenantError) {
+      return { data: null, error: tenantError }
+    }
+  }
 
   const { data, error } = await supabase
     .from(TABLE)
@@ -254,6 +269,58 @@ export async function cancelContract(id, payload = {}) {
     .eq('id', id)
     .select(CONTRACT_SELECT)
     .single()
+
+  return { data, error }
+}
+
+async function getCurrentUserId() {
+  const { data: userData, error } = await supabase.auth.getUser()
+  if (error) {
+    return null
+  }
+
+  return userData?.user?.id ?? null
+}
+
+/**
+ * Reativa um contrato Cancelado, devolvendo pra Rascunho (seção 11 do
+ * pedido) -- não apaga nada, só muda o status; o histórico de que já esteve
+ * cancelado fica registrado em audit_logs (mesmo padrão de
+ * vehiclesService.logVehicleAudit). Passar de novo por "Rascunho" garante
+ * que a reassinatura sempre revalida disponibilidade do veículo via
+ * signContract, do jeito normal.
+ */
+export async function reactivateContract(id) {
+  const { data: contract, error: fetchError } = await getContractById(id)
+  if (fetchError || !contract) {
+    return { data: null, error: fetchError || { message: 'Contrato não encontrado.' } }
+  }
+
+  if (contract.status !== 'Cancelado') {
+    return { data: null, error: { message: 'Só é possível reativar um contrato Cancelado.' } }
+  }
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({ status: 'Rascunho' })
+    .eq('id', id)
+    .select(CONTRACT_SELECT)
+    .single()
+
+  if (!error && data) {
+    const userId = await getCurrentUserId()
+    const { error: auditError } = await supabase.from('audit_logs').insert({
+      action: 'REACTIVATE',
+      entity: 'contracts',
+      entity_id: id,
+      user_id: userId,
+      before_data: contract,
+      after_data: data,
+    })
+    if (auditError) {
+      console.warn('Falha ao registrar auditoria da reativação:', auditError.message)
+    }
+  }
 
   return { data, error }
 }

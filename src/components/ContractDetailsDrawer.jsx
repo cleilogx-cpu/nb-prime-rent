@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CheckCircle2, Download, FileText, X, XCircle } from 'lucide-react'
+import { CheckCircle2, Download, FileText, Pencil, RotateCcw, X, XCircle } from 'lucide-react'
 import { downloadContractDocx } from '../lib/contractDocx.js'
 import { downloadContractPdf } from '../lib/contractPdf.js'
 import { formatCurrency, formatDate, formatTenantAddress } from '../lib/format.js'
@@ -7,7 +7,7 @@ import { PERIODICITY_LABELS } from '../lib/constants.js'
 
 const FINANCE_LABELS = { partners: 'Sócios', savings: 'Fundo' }
 
-export default function ContractDetailsDrawer({ open, contract, onClose, onSign, onCancel, signing }) {
+export default function ContractDetailsDrawer({ open, contract, onClose, onSign, onCancel, onEdit, onReactivate, signing, reactivating }) {
   const [downloading, setDownloading] = useState(false)
 
   if (!open || !contract) {
@@ -18,6 +18,8 @@ export default function ContractDetailsDrawer({ open, contract, onClose, onSign,
   const vehicle = contract.vehicles
   const isDraft = contract.status === 'Rascunho'
   const isActive = contract.status === 'Ativo'
+  const isCancelled = contract.status === 'Cancelado'
+  const isEnded = contract.status === 'Encerrado'
 
   const handleDownloadDocx = async () => {
     setDownloading(true)
@@ -106,6 +108,14 @@ export default function ContractDetailsDrawer({ open, contract, onClose, onSign,
               </button>
               <button
                 type="button"
+                onClick={() => onEdit(contract)}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-slate-200"
+              >
+                <Pencil size={16} />
+                Editar
+              </button>
+              <button
+                type="button"
                 onClick={() => onSign(contract)}
                 disabled={signing}
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-200 disabled:opacity-60"
@@ -117,6 +127,20 @@ export default function ContractDetailsDrawer({ open, contract, onClose, onSign,
           ) : null}
           {isActive ? (
             <p className="text-sm text-emerald-300">Contrato ativo — a locação já foi criada e o veículo está marcado como Alugado.</p>
+          ) : null}
+          {isCancelled ? (
+            <button
+              type="button"
+              onClick={() => onReactivate(contract)}
+              disabled={reactivating}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-300/15 px-4 py-3 text-sm font-semibold text-amber-200 disabled:opacity-60"
+            >
+              <RotateCcw size={16} />
+              {reactivating ? 'Reativando...' : 'Reativar contrato'}
+            </button>
+          ) : null}
+          {isEnded ? (
+            <p className="text-sm text-slate-400">Contrato encerrado — consulte o histórico da locação pra detalhes.</p>
           ) : null}
         </div>
       </div>

@@ -6,7 +6,7 @@ import ContractFilters from '../components/ContractFilters.jsx'
 import ContractForm from '../components/ContractForm.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import Toast from '../components/Toast.jsx'
-import { cancelContract, createContract, listContracts, signContract } from '../services/contractsService.js'
+import { cancelContract, createContract, listContracts, reactivateContract, signContract, updateContract } from '../services/contractsService.js'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 
 function SummaryCard({ label, value, icon }) {
@@ -28,10 +28,12 @@ export default function Contracts() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('Ativo')
   const [formOpen, setFormOpen] = useState(false)
+  const [editingContract, setEditingContract] = useState(null)
   const [creating, setCreating] = useState(false)
   const [signing, setSigning] = useState(false)
+  const [reactivating, setReactivating] = useState(false)
   const [selectedContract, setSelectedContract] = useState(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false)
@@ -61,13 +63,21 @@ export default function Contracts() {
   const handleCreate = async (payload) => {
     setCreating(true)
 
-    const { data, error: createError } = await createContract(payload)
+    const { data, error: submitError } = editingContract
+      ? await updateContract(editingContract.id, payload)
+      : await createContract(payload)
 
-    if (createError) {
-      setToast({ message: createError.message || 'Não foi possível criar o contrato.', type: 'error' })
+    if (submitError) {
+      setToast({ message: submitError.message || 'Não foi possível salvar o contrato.', type: 'error' })
     } else {
-      setToast({ message: 'Contrato criado como Rascunho. Gere o documento e envie para assinatura.', type: 'success' })
+      setToast({
+        message: editingContract
+          ? 'Contrato atualizado.'
+          : 'Contrato criado como Rascunho. Gere o documento e envie para assinatura.',
+        type: 'success',
+      })
       setFormOpen(false)
+      setEditingContract(null)
       await loadContracts()
       setSelectedContract(data)
       setDetailsOpen(true)
@@ -79,6 +89,28 @@ export default function Contracts() {
   const handleOpenDetails = (contract) => {
     setSelectedContract(contract)
     setDetailsOpen(true)
+  }
+
+  const handleOpenEdit = (contract) => {
+    setEditingContract(contract)
+    setDetailsOpen(false)
+    setFormOpen(true)
+  }
+
+  const handleReactivate = async (contract) => {
+    setReactivating(true)
+
+    const { data, error: reactivateError } = await reactivateContract(contract.id)
+
+    if (reactivateError) {
+      setToast({ message: reactivateError.message || 'Não foi possível reativar o contrato.', type: 'error' })
+    } else {
+      setToast({ message: 'Contrato reativado como Rascunho.', type: 'success' })
+      setSelectedContract(data)
+      await loadContracts()
+    }
+
+    setReactivating(false)
   }
 
   const handleSign = async (contract) => {
@@ -137,7 +169,10 @@ export default function Contracts() {
           </div>
           <button
             type="button"
-            onClick={() => setFormOpen(true)}
+            onClick={() => {
+              setEditingContract(null)
+              setFormOpen(true)
+            }}
             className="inline-flex items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-300/15 px-4 py-3 text-sm font-semibold text-amber-200 transition hover:bg-amber-300/25"
           >
             <PlusCircle size={18} />
@@ -183,7 +218,11 @@ export default function Contracts() {
 
       <ContractForm
         open={formOpen}
-        onClose={() => setFormOpen(false)}
+        contract={editingContract}
+        onClose={() => {
+          setFormOpen(false)
+          setEditingContract(null)
+        }}
         onSubmit={handleCreate}
         loading={creating}
       />
@@ -197,7 +236,10 @@ export default function Contracts() {
         }}
         onSign={handleSign}
         onCancel={requestCancel}
+        onEdit={handleOpenEdit}
+        onReactivate={handleReactivate}
         signing={signing}
+        reactivating={reactivating}
       />
 
       <ConfirmDialog

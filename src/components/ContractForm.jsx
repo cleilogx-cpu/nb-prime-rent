@@ -38,6 +38,7 @@ const initialForm = {
     address_state: '',
     cnh_number: '',
     cnh_validity: '',
+    birth_date: '',
   },
   start_date: new Date().toISOString().slice(0, 10),
   duration_months: 3,
@@ -49,23 +50,63 @@ const initialForm = {
   observations: '',
 }
 
-export default function ContractForm({ open, onClose, onSubmit, loading }) {
+/**
+ * Monta o form a partir de um contrato existente (modo edição, seção 10 do
+ * pedido) -- só usado pra Rascunho. Datas numéricas (payment_amount etc.)
+ * viram string porque é o que os `<input>` controlados esperam.
+ */
+function formFromContract(contract) {
+  const tenant = contract.tenants || {}
+
+  return {
+    vehicle_id: contract.vehicle_id,
+    finance_model: contract.finance_model || 'partners',
+    tenant: {
+      full_name: tenant.full_name || '',
+      cpf: tenant.cpf || '',
+      rg: tenant.rg || '',
+      phone: tenant.phone || '',
+      address_street: tenant.address_street || '',
+      address_number: tenant.address_number || '',
+      address_neighborhood: tenant.address_neighborhood || '',
+      address_zip: tenant.address_zip || '',
+      address_complement: tenant.address_complement || '',
+      address_city: tenant.address_city || '',
+      address_state: tenant.address_state || '',
+      cnh_number: tenant.cnh_number || '',
+      cnh_validity: tenant.cnh_validity || '',
+      birth_date: tenant.birth_date || '',
+    },
+    start_date: contract.start_date || new Date().toISOString().slice(0, 10),
+    duration_months: 'custom',
+    end_date: contract.end_date || '',
+    periodicity: contract.periodicity || PERIODICITY.WEEKLY,
+    payment_amount: contract.payment_amount ?? '',
+    deposit_amount: contract.deposit_amount ?? '',
+    initial_km: contract.initial_km ?? '',
+    observations: contract.observations || '',
+  }
+}
+
+export default function ContractForm({ open, onClose, onSubmit, loading, contract }) {
   const [vehicles, setVehicles] = useState([])
   const [form, setForm] = useState(initialForm)
   const [errors, setErrors] = useState({})
   const [customMonths, setCustomMonths] = useState('')
+  const isEditing = Boolean(contract)
 
   useEffect(() => {
     if (!open) {
       return
     }
 
-    setForm(initialForm)
+    setForm(contract ? formFromContract(contract) : initialForm)
     setCustomMonths('')
     setErrors({})
 
     listVehicles({}).then(({ data }) => setVehicles(data ?? []))
-  }, [open])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, contract])
 
   const selectedVehicle = useMemo(
     () => vehicles.find((vehicle) => vehicle.id === form.vehicle_id) || null,
@@ -139,6 +180,7 @@ export default function ContractForm({ open, onClose, onSubmit, loading }) {
       vehicle_id: form.vehicle_id,
       finance_model: form.finance_model,
       tenant: form.tenant,
+      tenant_id: contract?.tenant_id,
       start_date: form.start_date,
       duration_months: form.end_date ? undefined : months,
       end_date: form.end_date || undefined,
@@ -155,8 +197,8 @@ export default function ContractForm({ open, onClose, onSubmit, loading }) {
       <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[32px] border border-white/10 bg-slate-950 p-4 shadow-2xl shadow-black/60 sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm uppercase tracking-[0.35em] text-amber-300/80">Novo contrato</p>
-            <h3 className="mt-2 text-2xl font-semibold text-white">Gerar contrato de locação</h3>
+            <p className="text-sm uppercase tracking-[0.35em] text-amber-300/80">{isEditing ? 'Editar contrato' : 'Novo contrato'}</p>
+            <h3 className="mt-2 text-2xl font-semibold text-white">{isEditing ? `Editar ${contract.contract_number}` : 'Gerar contrato de locação'}</h3>
           </div>
           <button type="button" onClick={onClose} className="rounded-2xl border border-white/10 bg-slate-900 p-2 text-slate-200">
             <X size={18} />
@@ -277,6 +319,10 @@ export default function ContractForm({ open, onClose, onSubmit, loading }) {
                 <span>CNH (validade)</span>
                 <input type="date" value={form.tenant.cnh_validity} onChange={(event) => handleTenantChange('cnh_validity', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
               </label>
+              <label className="flex flex-col gap-2 text-sm text-slate-300">
+                <span>Data de nascimento</span>
+                <input type="date" value={form.tenant.birth_date} onChange={(event) => handleTenantChange('birth_date', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+              </label>
             </div>
           </div>
 
@@ -358,7 +404,7 @@ export default function ContractForm({ open, onClose, onSubmit, loading }) {
               Cancelar
             </button>
             <button type="submit" disabled={loading} className="rounded-2xl border border-amber-300/20 bg-amber-300/15 px-4 py-3 text-sm font-semibold text-amber-200 disabled:opacity-60">
-              {loading ? 'Gerando...' : 'Gerar contrato (Rascunho)'}
+              {loading ? 'Salvando...' : isEditing ? 'Salvar alterações' : 'Gerar contrato (Rascunho)'}
             </button>
           </div>
         </form>

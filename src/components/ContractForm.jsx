@@ -161,7 +161,7 @@ export default function ContractForm({ open, onClose, onSubmit, loading, contrac
     if (!form.tenant.address_state?.trim()) nextErrors.address_state = 'A UF é obrigatória.'
     if (!form.start_date) nextErrors.start_date = 'A data de início é obrigatória.'
     if (!form.payment_amount) nextErrors.payment_amount = 'O valor do pagamento é obrigatório.'
-    if (form.duration_months === 'custom' && !customMonths) nextErrors.duration_months = 'Informe quantos meses.'
+    if (form.duration_months === 'custom' && !customMonths && !form.end_date) nextErrors.duration_months = 'Informe quantos meses.'
 
     setErrors(nextErrors)
     return Object.keys(nextErrors).length === 0

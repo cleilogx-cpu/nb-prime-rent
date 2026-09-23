@@ -11,7 +11,7 @@ const pageTitles = {
   '/payments': 'Recebimentos',
   '/recebimentos': 'Recebimentos',
   '/caucoes': 'Cauções',
-  '/despesas': 'Despesas',
+  '/despesas': 'Custos',
   '/manutencao': 'Manutenção',
   '/historico': 'Histórico',
 }

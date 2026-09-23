@@ -18,7 +18,7 @@ const menuItems = [
   { label: 'Contratos', to: '/contracts', icon: FileText },
   { label: 'Recebimentos', to: '/payments', icon: DollarSign },
   { label: 'Cauções', to: '/caucoes', icon: ShieldCheck },
-  { label: 'Despesas', to: '/despesas', icon: FileText },
+  { label: 'Custos', to: '/despesas', icon: FileText },
   { label: 'Manutenção', to: '/manutencao', icon: Wrench },
   { label: 'Histórico', to: '/historico', icon: Clock3 },
 ]

@@ -96,7 +96,7 @@ begin
         old.billing_day, old.late_fee_percent, old.late_interest_percent_month,
         old.observations, old.clauses, old.contract_number)
     then
-      raise exception 'Contrato assinado não pode ser editado.';
+      raise exception 'Contrato assinado nao pode ser editado.';
     end if;
   end if;
   return new;

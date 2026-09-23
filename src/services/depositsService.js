@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient.js'
 import { DEPOSIT_STATUS } from '../lib/constants.js'
+import { formatCurrency } from '../lib/format.js'
 
 const TABLE = 'contract_deposits'
 const DEPOSIT_SELECT = '*, contracts(contract_number, status, finance_model), vehicles(plate, model), tenants(full_name, cpf, phone)'
@@ -158,24 +159,78 @@ export async function updateAgreedTerms(depositId, agreedTerms) {
   return { data, error }
 }
 
+async function getCurrentUserId() {
+  const { data: userData, error } = await supabase.auth.getUser()
+  if (error) {
+    return null
+  }
+
+  return userData?.user?.id ?? null
+}
+
 /**
- * Registra a devolução da caução. Isso é SAÍDA de dinheiro -- nunca cria
- * linha em Recebimentos (seção 13 do pedido).
+ * Registra uma devolução (parcial ou total) da caução. Isso é SAÍDA de
+ * dinheiro -- nunca cria linha em Recebimentos (seção 13 do pedido).
+ * `refund_amount` é cumulativo -- soma no que já tinha sido devolvido, em
+ * vez de sobrescrever, pra suportar devolução em várias parcelas de
+ * verdade (seção 23). Só fecha como Devolvida quando o acumulado atinge o
+ * valor recebido; enquanto sobrar saldo, continua A devolver. Cada
+ * devolução parcial fica registrada em audit_logs, já que o campo em si
+ * vira cumulativo e não guarda o histórico de cada lançamento sozinho.
  */
 export async function registerRefund(depositId, payload) {
+  const { data: deposit, error: fetchError } = await supabase
+    .from(TABLE)
+    .select('*')
+    .eq('id', depositId)
+    .single()
+
+  if (fetchError || !deposit) {
+    return { data: null, error: fetchError || { message: 'Caução não encontrada.' } }
+  }
+
+  const amount = Number(payload.refund_amount || 0)
+  if (amount <= 0) {
+    return { data: null, error: { message: 'Informe um valor de devolução maior que zero.' } }
+  }
+
+  const receivedAmount = Number(deposit.received_amount || 0)
+  const alreadyRefunded = Number(deposit.refund_amount || 0)
+  const balance = Math.max(0, receivedAmount - alreadyRefunded)
+
+  if (amount > balance) {
+    return { data: null, error: { message: `O valor não pode passar do saldo a devolver (${formatCurrency(balance)}).` } }
+  }
+
+  const newRefundAmount = alreadyRefunded + amount
+  const status = newRefundAmount >= receivedAmount ? DEPOSIT_STATUS.DEVOLVIDA : DEPOSIT_STATUS.A_DEVOLVER
+
   const { data, error } = await supabase
     .from(TABLE)
     .update({
-      refund_amount: payload.refund_amount === '' || payload.refund_amount === null || payload.refund_amount === undefined
-        ? null
-        : Number(payload.refund_amount),
+      refund_amount: newRefundAmount,
       refund_date: payload.refund_date || null,
       refund_notes: payload.refund_notes || null,
-      status: DEPOSIT_STATUS.DEVOLVIDA,
+      status,
     })
     .eq('id', depositId)
     .select('*')
     .single()
+
+  if (!error && data) {
+    const userId = await getCurrentUserId()
+    const { error: auditError } = await supabase.from('audit_logs').insert({
+      action: 'REFUND',
+      entity: 'contract_deposits',
+      entity_id: depositId,
+      user_id: userId,
+      before_data: deposit,
+      after_data: { ...data, refund_event_amount: amount },
+    })
+    if (auditError) {
+      console.warn('Falha ao registrar auditoria da devolução:', auditError.message)
+    }
+  }
 
   return { data, error }
 }

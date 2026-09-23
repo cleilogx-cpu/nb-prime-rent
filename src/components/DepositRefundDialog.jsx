@@ -16,10 +16,17 @@ export default function DepositRefundDialog({ open, deposit, onClose, onConfirm 
   }
 
   const receivedAmount = Number(deposit.received_amount || 0)
+  const alreadyRefunded = Number(deposit.refund_amount || 0)
+  const balance = Math.max(0, receivedAmount - alreadyRefunded)
 
   const handleConfirm = async () => {
     if (!refundAmount) {
       setError('Informe o valor devolvido.')
+      return
+    }
+
+    if (Number(refundAmount) > balance) {
+      setError(`O valor não pode passar do saldo a devolver (${formatCurrency(balance)}).`)
       return
     }
 
@@ -50,12 +57,24 @@ export default function DepositRefundDialog({ open, deposit, onClose, onConfirm 
           Valor recebido: {formatCurrency(receivedAmount)}. Isso é saída de dinheiro — não entra como Recebimento.
         </p>
 
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-3 text-sm">
+            <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Já devolvido</p>
+            <p className="mt-1 text-white">{formatCurrency(alreadyRefunded)}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-3 text-sm">
+            <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Saldo a devolver</p>
+            <p className="mt-1 text-white">{formatCurrency(balance)}</p>
+          </div>
+        </div>
+
         <div className="mt-6 space-y-4">
           <label className="block space-y-2">
-            <span className="text-sm font-medium text-slate-300">Valor devolvido</span>
+            <span className="text-sm font-medium text-slate-300">Valor devolvido agora</span>
             <input
               type="number"
               min="0"
+              max={balance}
               step="0.01"
               value={refundAmount}
               onChange={(event) => setRefundAmount(event.target.value)}

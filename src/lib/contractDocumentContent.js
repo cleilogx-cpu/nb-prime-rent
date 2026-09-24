@@ -107,9 +107,15 @@ export function buildContractSections(contract) {
     type: 'paragraph',
     text: `CLÁUSULA 4ª — O pagamento deverá ser realizado ${periodicityText.cadence}, conforme cronograma, via PIX na chave ${PIX.chave}, Ag ${PIX.agencia}, Conta ${PIX.conta}, ${PIX.banco}, em nome de ${PIX.titular}.`,
   })
+  // late_fee_percent/late_interest_percent_month são gravados no contrato
+  // na criação (contractsService.createContract, a partir de
+  // CONTRACT_DEFAULTS) -- contratos antigos, de antes dessa coluna existir,
+  // caem no mesmo 10%/1% que sempre foi o padrão fixo aqui.
+  const lateFeePercent = contract.late_fee_percent ?? 10
+  const lateInterestPercentMonth = contract.late_interest_percent_month ?? 1
   sections.push({
     type: 'paragraph',
-    text: 'CLÁUSULA 5ª — O atraso no pagamento implicará em multa de 10% sobre o valor devido, acrescido de juros de mora de 1% ao mês e poderá ensejar a rescisão imediata do contrato com o bloqueio remoto do veículo assim que estiver parado.',
+    text: `CLÁUSULA 5ª — O atraso no pagamento implicará em multa de ${lateFeePercent}% sobre o valor devido, acrescido de juros de mora de ${lateInterestPercentMonth}% ao mês e poderá ensejar a rescisão imediata do contrato com o bloqueio remoto do veículo assim que estiver parado.`,
   })
 
   sections.push({ type: 'subheading', text: '5. DO DEPÓSITO CAUÇÃO' })

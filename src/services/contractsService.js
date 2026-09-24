@@ -6,7 +6,7 @@ import {
   generateContractNumber,
   validateContractDates,
 } from '../lib/contractLogic.js'
-import { PERIODICITY, VEHICLE_STATUS } from '../lib/constants.js'
+import { CONTRACT_DEFAULTS, PERIODICITY, VEHICLE_STATUS } from '../lib/constants.js'
 import { generateChargesForContract } from './chargesService.js'
 import { createOrSyncDepositForContract } from './depositsService.js'
 
@@ -119,6 +119,12 @@ export async function createContract(payload) {
       ...normalizedPayload,
       contract_number: generateContractNumber(new Date().getFullYear()),
       status: 'Rascunho',
+      // Snapshot da multa/juros padrão no momento da criação (seção 13 do
+      // pedido) -- nunca recalculado depois, mesmo que CONTRACT_DEFAULTS
+      // mude no futuro. updateContract não grava esses dois campos, então
+      // editar um Rascunho não altera o valor gravado aqui.
+      late_fee_percent: CONTRACT_DEFAULTS.lateFeePercent,
+      late_interest_percent_month: CONTRACT_DEFAULTS.lateInterestPercentMonth,
     })
     .select(CONTRACT_SELECT)
     .single()

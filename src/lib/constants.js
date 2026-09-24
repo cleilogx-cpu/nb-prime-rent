@@ -116,3 +116,13 @@ export const OCR_STATUS = {
   FAILED: 'failed',
   NOT_APPLICABLE: 'not_applicable',
 }
+
+// Multa/juros padrão gravados em CADA contrato na criação (snapshot --
+// contractsService.createContract grava esses valores nas colunas
+// late_fee_percent/late_interest_percent_month do próprio contrato, nunca
+// editável depois). Contratos antigos preservam o valor da época mesmo que
+// este padrão mude no futuro -- mudar aqui só afeta contratos novos.
+export const CONTRACT_DEFAULTS = {
+  lateFeePercent: 10,
+  lateInterestPercentMonth: 1,
+}

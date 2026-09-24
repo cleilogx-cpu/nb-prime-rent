@@ -4,9 +4,10 @@ import ContractCard from '../components/ContractCard.jsx'
 import ContractDetailsDrawer from '../components/ContractDetailsDrawer.jsx'
 import ContractFilters from '../components/ContractFilters.jsx'
 import ContractForm from '../components/ContractForm.jsx'
+import ContractWizard from '../components/ContractWizard.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import Toast from '../components/Toast.jsx'
-import { cancelContract, createContract, listContracts, reactivateContract, signContract, updateContract } from '../services/contractsService.js'
+import { cancelContract, listContracts, reactivateContract, signContract, updateContract } from '../services/contractsService.js'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 
 function SummaryCard({ label, value, icon }) {
@@ -30,6 +31,7 @@ export default function Contracts() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('Ativo')
   const [formOpen, setFormOpen] = useState(false)
+  const [wizardOpen, setWizardOpen] = useState(false)
   const [editingContract, setEditingContract] = useState(null)
   const [creating, setCreating] = useState(false)
   const [signing, setSigning] = useState(false)
@@ -60,22 +62,23 @@ export default function Contracts() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, statusFilter])
 
-  const handleCreate = async (payload) => {
+  // ContractForm agora só existe pro modo Editar (Fase 2 do Contrato
+  // Inteligente) -- criar contrato novo passou a ser feito pelo
+  // ContractWizard, que já cria o contrato ele mesmo (precisa do id antes
+  // do fim do fluxo, pra anexar os documentos do dossiê).
+  const handleUpdate = async (payload) => {
+    if (!editingContract) {
+      return
+    }
+
     setCreating(true)
 
-    const { data, error: submitError } = editingContract
-      ? await updateContract(editingContract.id, payload)
-      : await createContract(payload)
+    const { data, error: submitError } = await updateContract(editingContract.id, payload)
 
     if (submitError) {
       setToast({ message: submitError.message || 'Não foi possível salvar o contrato.', type: 'error' })
     } else {
-      setToast({
-        message: editingContract
-          ? 'Contrato atualizado.'
-          : 'Contrato criado como Rascunho. Gere o documento e envie para assinatura.',
-        type: 'success',
-      })
+      setToast({ message: 'Contrato atualizado.', type: 'success' })
       setFormOpen(false)
       setEditingContract(null)
       await loadContracts()
@@ -84,6 +87,14 @@ export default function Contracts() {
     }
 
     setCreating(false)
+  }
+
+  const handleWizardCompleted = async (contract) => {
+    setWizardOpen(false)
+    setToast({ message: 'Contrato criado como Rascunho. Gere o documento e envie para assinatura.', type: 'success' })
+    await loadContracts()
+    setSelectedContract(contract)
+    setDetailsOpen(true)
   }
 
   const handleOpenDetails = (contract) => {
@@ -169,10 +180,7 @@ export default function Contracts() {
           </div>
           <button
             type="button"
-            onClick={() => {
-              setEditingContract(null)
-              setFormOpen(true)
-            }}
+            onClick={() => setWizardOpen(true)}
             className="inline-flex items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-300/15 px-4 py-3 text-sm font-semibold text-amber-200 transition hover:bg-amber-300/25"
           >
             <PlusCircle size={18} />
@@ -223,8 +231,14 @@ export default function Contracts() {
           setFormOpen(false)
           setEditingContract(null)
         }}
-        onSubmit={handleCreate}
+        onSubmit={handleUpdate}
         loading={creating}
+      />
+
+      <ContractWizard
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        onCompleted={handleWizardCompleted}
       />
 
       <ContractDetailsDrawer

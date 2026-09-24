@@ -2,24 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { X } from 'lucide-react'
 import { listVehicles } from '../services/vehiclesService.js'
 import { addMonthsToDate, deriveWeeksFromDates } from '../lib/contractLogic.js'
-import { PERIODICITY, PERIODICITY_LABELS } from '../lib/constants.js'
-import { formatCPF } from '../lib/format.js'
-
-const DURATION_PRESETS = [
-  { label: '1 mês', months: 1 },
-  { label: '2 meses', months: 2 },
-  { label: '3 meses', months: 3 },
-  { label: '6 meses', months: 6 },
-  { label: '12 meses', months: 12 },
-  { label: 'Personalizado', months: 'custom' },
-]
-
-const PAYMENT_AMOUNT_LABEL = {
-  [PERIODICITY.DAILY]: 'Valor da diária',
-  [PERIODICITY.WEEKLY]: 'Valor semanal',
-  [PERIODICITY.BIWEEKLY]: 'Valor da quinzena',
-  [PERIODICITY.MONTHLY]: 'Valor mensal',
-}
+import { PERIODICITY } from '../lib/constants.js'
+import VehicleStepFields from './VehicleStepFields.jsx'
+import TenantFields from './TenantFields.jsx'
+import LeaseTermsStepFields from './LeaseTermsStepFields.jsx'
 
 const initialForm = {
   vehicle_id: '',
@@ -206,34 +192,16 @@ export default function ContractForm({ open, onClose, onSubmit, loading, contrac
         </div>
 
         <form className="mt-6 space-y-6" onSubmit={submit}>
-          {/* Passo 1: veículo */}
-          <div className="space-y-3">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">1. Veículo</p>
-            <select
-              value={form.vehicle_id}
-              onChange={(event) => handleVehicleSelect(event.target.value)}
-              className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none"
-            >
-              <option value="">Selecione um veículo cadastrado</option>
-              {vehicles.map((vehicle) => (
-                <option key={vehicle.id} value={vehicle.id}>
-                  {vehicle.plate} — {vehicle.model} ({vehicle.status})
-                </option>
-              ))}
-            </select>
-            {errors.vehicle_id ? <span className="text-xs text-rose-300">{errors.vehicle_id}</span> : null}
+          <VehicleStepFields
+            vehicles={vehicles}
+            vehicleId={form.vehicle_id}
+            onSelectVehicle={handleVehicleSelect}
+            selectedVehicle={selectedVehicle}
+            error={errors.vehicle_id}
+          />
 
-            {selectedVehicle ? (
-              <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-sm text-slate-300">
-                <p>{selectedVehicle.model} · {selectedVehicle.color} · {selectedVehicle.year || 'ano não informado'}</p>
-                <p className="mt-1 text-xs text-slate-500">Chassi: {selectedVehicle.chassis || 'não informado'} · Km atual: {selectedVehicle.current_km ?? 'não informado'}</p>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Passo 2: distribuição do dinheiro */}
           <div className="space-y-3">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">2. Distribuição do aluguel</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Distribuição do aluguel</p>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className={`cursor-pointer rounded-2xl border p-4 text-sm ${form.finance_model === 'partners' ? 'border-amber-300/40 bg-amber-300/10 text-amber-100' : 'border-white/10 bg-slate-900/60 text-slate-300'}`}>
                 <input type="radio" name="finance_model" className="mr-2" checked={form.finance_model === 'partners'} onChange={() => handleChange('finance_model', 'partners')} />
@@ -246,158 +214,20 @@ export default function ContractForm({ open, onClose, onSubmit, loading, contrac
             </div>
           </div>
 
-          {/* Passo 3: locatário */}
           <div className="space-y-3">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">3. Dados do locatário</p>
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="flex flex-col gap-2 text-sm text-slate-300">
-                <span>Nome completo</span>
-                <input value={form.tenant.full_name} onChange={(event) => handleTenantChange('full_name', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
-                {errors.full_name ? <span className="text-xs text-rose-300">{errors.full_name}</span> : null}
-              </label>
-              <label className="flex flex-col gap-2 text-sm text-slate-300">
-                <span>CPF</span>
-                <input
-                  value={form.tenant.cpf}
-                  onChange={(event) => handleTenantChange('cpf', formatCPF(event.target.value))}
-                  inputMode="numeric"
-                  maxLength={14}
-                  className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none"
-                  placeholder="000.000.000-00"
-                />
-                {errors.cpf ? <span className="text-xs text-rose-300">{errors.cpf}</span> : null}
-              </label>
-              <label className="flex flex-col gap-2 text-sm text-slate-300">
-                <span>RG</span>
-                <input value={form.tenant.rg} onChange={(event) => handleTenantChange('rg', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
-              </label>
-              <label className="flex flex-col gap-2 text-sm text-slate-300">
-                <span>Telefone / WhatsApp</span>
-                <input value={form.tenant.phone} onChange={(event) => handleTenantChange('phone', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
-              </label>
-
-              <label className="flex flex-col gap-2 text-sm text-slate-300 md:col-span-2">
-                <span>Logradouro (Rua/Avenida)</span>
-                <input value={form.tenant.address_street} onChange={(event) => handleTenantChange('address_street', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
-                {errors.address_street ? <span className="text-xs text-rose-300">{errors.address_street}</span> : null}
-              </label>
-              <label className="flex flex-col gap-2 text-sm text-slate-300">
-                <span>Número</span>
-                <input value={form.tenant.address_number} onChange={(event) => handleTenantChange('address_number', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
-                {errors.address_number ? <span className="text-xs text-rose-300">{errors.address_number}</span> : null}
-              </label>
-              <label className="flex flex-col gap-2 text-sm text-slate-300">
-                <span>Bairro</span>
-                <input value={form.tenant.address_neighborhood} onChange={(event) => handleTenantChange('address_neighborhood', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
-                {errors.address_neighborhood ? <span className="text-xs text-rose-300">{errors.address_neighborhood}</span> : null}
-              </label>
-              <label className="flex flex-col gap-2 text-sm text-slate-300">
-                <span>CEP</span>
-                <input value={form.tenant.address_zip} onChange={(event) => handleTenantChange('address_zip', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" placeholder="00000-000" />
-                {errors.address_zip ? <span className="text-xs text-rose-300">{errors.address_zip}</span> : null}
-              </label>
-              <label className="flex flex-col gap-2 text-sm text-slate-300">
-                <span>Complemento</span>
-                <input value={form.tenant.address_complement} onChange={(event) => handleTenantChange('address_complement', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" placeholder="Opcional" />
-              </label>
-              <label className="flex flex-col gap-2 text-sm text-slate-300">
-                <span>Cidade</span>
-                <input value={form.tenant.address_city} onChange={(event) => handleTenantChange('address_city', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
-                {errors.address_city ? <span className="text-xs text-rose-300">{errors.address_city}</span> : null}
-              </label>
-              <label className="flex flex-col gap-2 text-sm text-slate-300">
-                <span>UF</span>
-                <input value={form.tenant.address_state} onChange={(event) => handleTenantChange('address_state', event.target.value.toUpperCase())} maxLength={2} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" placeholder="RO" />
-                {errors.address_state ? <span className="text-xs text-rose-300">{errors.address_state}</span> : null}
-              </label>
-
-              <label className="flex flex-col gap-2 text-sm text-slate-300">
-                <span>CNH (número)</span>
-                <input value={form.tenant.cnh_number} onChange={(event) => handleTenantChange('cnh_number', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
-              </label>
-              <label className="flex flex-col gap-2 text-sm text-slate-300">
-                <span>CNH (validade)</span>
-                <input type="date" value={form.tenant.cnh_validity} onChange={(event) => handleTenantChange('cnh_validity', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
-              </label>
-              <label className="flex flex-col gap-2 text-sm text-slate-300">
-                <span>Data de nascimento</span>
-                <input type="date" value={form.tenant.birth_date} onChange={(event) => handleTenantChange('birth_date', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
-              </label>
-            </div>
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Dados do locatário</p>
+            <TenantFields tenant={form.tenant} onChange={handleTenantChange} errors={errors} />
           </div>
 
-          {/* Passo 4: prazo e valores */}
-          <div className="space-y-3">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">4. Prazo, periodicidade e valores</p>
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="flex flex-col gap-2 text-sm text-slate-300">
-                <span>Data de início</span>
-                <input type="date" value={form.start_date} onChange={(event) => handleChange('start_date', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
-                {errors.start_date ? <span className="text-xs text-rose-300">{errors.start_date}</span> : null}
-              </label>
-
-              <label className="flex flex-col gap-2 text-sm text-slate-300">
-                <span>Prazo do contrato</span>
-                <select
-                  value={form.duration_months}
-                  onChange={(event) => handleChange('duration_months', event.target.value === 'custom' ? 'custom' : Number(event.target.value))}
-                  className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none"
-                >
-                  {DURATION_PRESETS.map((preset) => (
-                    <option key={preset.label} value={preset.months}>{preset.label}</option>
-                  ))}
-                </select>
-                {errors.duration_months ? <span className="text-xs text-rose-300">{errors.duration_months}</span> : null}
-              </label>
-
-              {form.duration_months === 'custom' ? (
-                <label className="flex flex-col gap-2 text-sm text-slate-300">
-                  <span>Quantos meses?</span>
-                  <input type="number" min="1" value={customMonths} onChange={(event) => setCustomMonths(event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" placeholder="5" />
-                </label>
-              ) : null}
-
-              <label className="flex flex-col gap-2 text-sm text-slate-300">
-                <span>Data final (calculada — pode ajustar)</span>
-                <input type="date" value={form.end_date || computedEndDate || ''} onChange={(event) => handleChange('end_date', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
-                <span className="text-xs text-slate-500">{computedWeeks} semana(s) de vigência total</span>
-              </label>
-
-              <label className="flex flex-col gap-2 text-sm text-slate-300">
-                <span>Periodicidade do pagamento</span>
-                <select
-                  value={form.periodicity}
-                  onChange={(event) => handleChange('periodicity', event.target.value)}
-                  className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none"
-                >
-                  {Object.entries(PERIODICITY_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="flex flex-col gap-2 text-sm text-slate-300">
-                <span>{PAYMENT_AMOUNT_LABEL[form.periodicity] || 'Valor do pagamento'}</span>
-                <input type="number" min="0" step="0.01" value={form.payment_amount} onChange={(event) => handleChange('payment_amount', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
-                {errors.payment_amount ? <span className="text-xs text-rose-300">{errors.payment_amount}</span> : null}
-              </label>
-
-              <label className="flex flex-col gap-2 text-sm text-slate-300">
-                <span>Caução</span>
-                <input type="number" min="0" step="0.01" value={form.deposit_amount} onChange={(event) => handleChange('deposit_amount', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
-              </label>
-
-              <label className="flex flex-col gap-2 text-sm text-slate-300">
-                <span>Quilometragem inicial</span>
-                <input type="number" min="0" value={form.initial_km} onChange={(event) => handleChange('initial_km', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
-              </label>
-            </div>
-
-            <label className="flex flex-col gap-2 text-sm text-slate-300">
-              <span>Observações</span>
-              <textarea rows="3" value={form.observations} onChange={(event) => handleChange('observations', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
-            </label>
-          </div>
+          <LeaseTermsStepFields
+            form={form}
+            errors={errors}
+            customMonths={customMonths}
+            setCustomMonths={setCustomMonths}
+            computedEndDate={computedEndDate}
+            computedWeeks={computedWeeks}
+            onChange={handleChange}
+          />
 
           <div className="flex flex-col-reverse justify-end gap-3 border-t border-white/10 pt-4 sm:flex-row">
             <button type="button" onClick={onClose} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-slate-200">

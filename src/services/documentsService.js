@@ -173,3 +173,41 @@ export async function backfillContractId(draftSessionId, contractId) {
   const { error } = await supabase.from(TABLE).update({ contract_id: contractId }).eq('draft_session_id', draftSessionId)
   return { error }
 }
+
+/**
+ * Chama a função de servidor de OCR (Fase 4) pra ler CNH/comprovante --
+ * a chave do Google e a chave de serviço do Supabase nunca chegam no
+ * navegador, só o resultado (campos extraídos, nunca o texto bruto ou
+ * credenciais). Se as variáveis de ambiente do Google ainda não estiverem
+ * configuradas na Vercel, a função devolve `not_applicable` sem erro -- o
+ * wizard continua funcionando 100% manual normalmente.
+ */
+export async function requestOcrExtraction(documentId) {
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token
+
+  if (!accessToken) {
+    return { data: null, error: { message: 'Sessão expirada.' } }
+  }
+
+  try {
+    const response = await fetch('/api/ocr/extract', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ document_id: documentId }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      return { data: null, error: { message: data?.error || 'Falha na leitura automática.' } }
+    }
+
+    return { data, error: null }
+  } catch (error) {
+    return { data: null, error: { message: error.message } }
+  }
+}

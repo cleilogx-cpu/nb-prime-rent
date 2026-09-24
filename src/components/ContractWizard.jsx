@@ -143,6 +143,22 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
     setTenant((current) => ({ ...current, [field]: value }))
   }
 
+  // Preenche a etapa "Conferir dados" com o que o OCR leu (Fase 4) -- só
+  // em campos ainda vazios, nunca sobrescrevendo algo que o operador já
+  // tenha digitado. A conferência humana continua obrigatória: nada aqui
+  // é salvo de verdade até o operador avançar pra próxima etapa.
+  const handleFieldsExtracted = (docType, fields) => {
+    setTenant((current) => {
+      const next = { ...current }
+      for (const [key, value] of Object.entries(fields)) {
+        if (value && !next[key]) {
+          next[key] = value
+        }
+      }
+      return next
+    })
+  }
+
   const handleLeaseChange = (field, value) => {
     setLease((current) => ({ ...current, [field]: value }))
   }
@@ -320,12 +336,17 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
               <div>
                 <h3 className="text-xl font-semibold text-white">Documentos do locatário</h3>
                 <p className="mt-2 text-sm text-slate-400">
-                  Envie a CNH e o comprovante de residência agora (foto pelo celular ou arquivo) -- isso já fica
-                  guardado no dossiê da locação. A leitura automática dos dados entra numa próxima etapa; por
-                  enquanto, os dados são conferidos e digitados na próxima tela.
+                  Envie a CNH e o comprovante de residência agora (foto pelo celular ou arquivo) -- o sistema tenta
+                  ler os dados automaticamente e pré-preenche a próxima etapa. Confira sempre: nenhum dado lido
+                  automaticamente é gravado sem você conferir antes.
                 </p>
               </div>
-              <DocumentDossie draftSessionId={draftSessionId} tenantId={tenantId} />
+              <DocumentDossie
+                draftSessionId={draftSessionId}
+                tenantId={tenantId}
+                enableOcr
+                onFieldsExtracted={handleFieldsExtracted}
+              />
             </div>
           ) : null}
 

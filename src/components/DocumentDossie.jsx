@@ -1,23 +1,30 @@
 import { useEffect, useState } from 'react'
-import { Download, Upload } from 'lucide-react'
-import { uploadDocument, getSignedUrl, listDocumentsForContract, listDocumentsForDraftSession } from '../services/documentsService.js'
-import { DOCUMENT_TYPE, DOCUMENT_TYPE_LABELS } from '../lib/constants.js'
+import { Download, Loader2, Upload } from 'lucide-react'
+import { uploadDocument, getSignedUrl, listDocumentsForContract, listDocumentsForDraftSession, requestOcrExtraction } from '../services/documentsService.js'
+import { DOCUMENT_TYPE, DOCUMENT_TYPE_LABELS, OCR_STATUS } from '../lib/constants.js'
 
 // Só estes dois tipos são enviados manualmente pelo operador -- os demais
 // (contrato gerado/assinado, imagem da assinatura) são anexados sozinhos
 // pelo sistema nas fases seguintes, e só aparecem aqui quando já existirem.
 const UPLOADABLE_TYPES = [DOCUMENT_TYPE.CNH, DOCUMENT_TYPE.COMPROVANTE_RESIDENCIA]
+const OCR_APPLICABLE_TYPES = [DOCUMENT_TYPE.CNH, DOCUMENT_TYPE.COMPROVANTE_RESIDENCIA]
 
 /**
  * Seção "Dossiê" reutilizável -- usada tanto no drawer de detalhes de um
  * contrato já existente quanto (Fase 2) na etapa "Documentos" do wizard
  * de novo contrato, antes do contrato existir de verdade (por isso aceita
  * `contractId` OU `draftSessionId`, nunca os dois vazios).
+ *
+ * `enableOcr` (Fase 4) só é ligado pelo wizard -- reenviar um documento
+ * num contrato já existente (uso do Fase 1, via ContractDetailsDrawer) não
+ * dispara leitura automática, pra não gastar chamada ao Document AI à toa
+ * quando não há formulário nenhum esperando o preenchimento.
  */
-export default function DocumentDossie({ contractId, tenantId, draftSessionId, onUploaded }) {
+export default function DocumentDossie({ contractId, tenantId, draftSessionId, onUploaded, enableOcr = false, onFieldsExtracted }) {
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
   const [uploadingType, setUploadingType] = useState(null)
+  const [processingType, setProcessingType] = useState(null)
   const [error, setError] = useState('')
 
   const load = async () => {
@@ -61,7 +68,7 @@ export default function DocumentDossie({ contractId, tenantId, draftSessionId, o
 
     const previousDoc = latestByType(docType)
 
-    const { error: uploadError } = await uploadDocument(file, {
+    const { data: uploaded, error: uploadError } = await uploadDocument(file, {
       draftSessionId: draftSessionId || crypto.randomUUID(),
       docType,
       tenantId,
@@ -78,6 +85,17 @@ export default function DocumentDossie({ contractId, tenantId, draftSessionId, o
 
     await load()
     onUploaded?.()
+
+    if (enableOcr && OCR_APPLICABLE_TYPES.includes(docType)) {
+      setProcessingType(docType)
+      const { data: ocrResult } = await requestOcrExtraction(uploaded.id)
+      setProcessingType(null)
+      await load()
+
+      if (ocrResult?.fields) {
+        onFieldsExtracted?.(docType, ocrResult.fields)
+      }
+    }
   }
 
   const visibleTypes = Object.keys(DOCUMENT_TYPE_LABELS).filter(
@@ -95,9 +113,42 @@ export default function DocumentDossie({ contractId, tenantId, draftSessionId, o
           const doc = latestByType(docType)
           const canUpload = UPLOADABLE_TYPES.includes(docType)
 
+          const showOcrBadge = enableOcr && OCR_APPLICABLE_TYPES.includes(docType) && doc
+          const isProcessing = processingType === docType
+
           return (
             <div key={docType} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/70 p-3 text-sm">
-              <span className="text-slate-300">{DOCUMENT_TYPE_LABELS[docType]}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-300">{DOCUMENT_TYPE_LABELS[docType]}</span>
+                {showOcrBadge ? (
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${
+                      isProcessing
+                        ? 'border-amber-300/20 bg-amber-300/10 text-amber-200'
+                        : doc.ocr_status === OCR_STATUS.SUCCESS
+                          ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200'
+                          : doc.ocr_status === OCR_STATUS.FAILED
+                            ? 'border-rose-400/20 bg-rose-500/10 text-rose-200'
+                            : 'border-white/10 text-slate-400'
+                    }`}
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 size={10} className="animate-spin" />
+                        Processando
+                      </>
+                    ) : doc.ocr_status === OCR_STATUS.SUCCESS ? (
+                      'Processado'
+                    ) : doc.ocr_status === OCR_STATUS.PARTIAL ? (
+                      'Processado (parcial)'
+                    ) : doc.ocr_status === OCR_STATUS.FAILED ? (
+                      'Erro na leitura'
+                    ) : (
+                      'Aguardando leitura'
+                    )}
+                  </span>
+                ) : null}
+              </div>
               <div className="flex items-center gap-2">
                 {doc ? (
                   <button
@@ -114,13 +165,13 @@ export default function DocumentDossie({ contractId, tenantId, draftSessionId, o
                 {canUpload ? (
                   <label className="inline-flex cursor-pointer items-center gap-1 rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-1.5 text-xs text-amber-200">
                     <Upload size={12} />
-                    {uploadingType === docType ? 'Enviando...' : doc ? 'Reenviar' : 'Enviar'}
+                    {uploadingType === docType ? 'Enviando...' : isProcessing ? 'Lendo...' : doc ? 'Reenviar' : 'Enviar'}
                     <input
                       type="file"
                       accept="image/*,application/pdf"
                       capture="environment"
                       className="hidden"
-                      disabled={uploadingType === docType}
+                      disabled={uploadingType === docType || isProcessing}
                       onChange={(event) => handleUpload(docType, event.target.files?.[0])}
                     />
                   </label>

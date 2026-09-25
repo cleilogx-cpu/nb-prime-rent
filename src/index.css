@@ -35,3 +35,21 @@ select {
   background: rgba(212, 175, 55, 0.35);
   color: #ffffff;
 }
+
+/*
+ * Campo numérico sem as setinhas de incremento/decremento -- em valores de
+ * dinheiro (payment_amount/deposit_amount) um clique sem querer nelas (ou o
+ * scroll do mouse passando por cima do campo focado) mudava o valor do
+ * contrato em centavos sem o operador perceber. onWheel={blur} (ver
+ * LeaseTermsStepFields.jsx) cobre o scroll; isto aqui esconde a seta que
+ * causava o clique acidental.
+ */
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.no-spinner {
+  -moz-appearance: textfield;
+}

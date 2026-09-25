@@ -25,6 +25,11 @@ export { DURATION_PRESETS }
  * computedEndDate/computedWeeks (que continua vivendo em quem usa este
  * componente, via as props já calculadas).
  */
+// Impede que o scroll do mouse mude o valor de um campo numérico focado
+// (comportamento padrão do navegador) -- tirar o foco no wheel neutraliza
+// isso sem bloquear o scroll da página em si.
+const blurOnWheel = (event) => event.target.blur()
+
 export default function LeaseTermsStepFields({
   form,
   errors,
@@ -61,7 +66,7 @@ export default function LeaseTermsStepFields({
         {form.duration_months === 'custom' ? (
           <label className="flex flex-col gap-2 text-sm text-slate-300">
             <span>Quantos meses?</span>
-            <input type="number" min="1" value={customMonths} onChange={(event) => setCustomMonths(event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" placeholder="5" />
+            <input type="number" min="1" value={customMonths} onChange={(event) => setCustomMonths(event.target.value)} onWheel={blurOnWheel} className="no-spinner rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" placeholder="5" />
           </label>
         ) : null}
 
@@ -86,18 +91,18 @@ export default function LeaseTermsStepFields({
 
         <label className="flex flex-col gap-2 text-sm text-slate-300">
           <span>{PAYMENT_AMOUNT_LABEL[form.periodicity] || 'Valor do pagamento'}</span>
-          <input type="number" min="0" step="0.01" value={form.payment_amount} onChange={(event) => onChange('payment_amount', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+          <input type="number" min="0" step="0.01" value={form.payment_amount} onChange={(event) => onChange('payment_amount', event.target.value)} onWheel={blurOnWheel} className="no-spinner rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
           {errors.payment_amount ? <span className="text-xs text-rose-300">{errors.payment_amount}</span> : null}
         </label>
 
         <label className="flex flex-col gap-2 text-sm text-slate-300">
           <span>Caução</span>
-          <input type="number" min="0" step="0.01" value={form.deposit_amount} onChange={(event) => onChange('deposit_amount', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+          <input type="number" min="0" step="0.01" value={form.deposit_amount} onChange={(event) => onChange('deposit_amount', event.target.value)} onWheel={blurOnWheel} className="no-spinner rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
         </label>
 
         <label className="flex flex-col gap-2 text-sm text-slate-300">
           <span>Quilometragem inicial</span>
-          <input type="number" min="0" value={form.initial_km} onChange={(event) => onChange('initial_km', event.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
+          <input type="number" min="0" value={form.initial_km} onChange={(event) => onChange('initial_km', event.target.value)} onWheel={blurOnWheel} className="no-spinner rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-white outline-none" />
         </label>
       </div>
 

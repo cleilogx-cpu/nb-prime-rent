@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Download, FileText, Share2, X } from 'lucide-react'
 import { listVehicles } from '../services/vehiclesService.js'
 import { findOrCreateTenant } from '../services/tenantsService.js'
-import { createContract, signContract } from '../services/contractsService.js'
+import { createContract, signContract, updateContract } from '../services/contractsService.js'
 import { backfillContractId, backfillTenantId, getSignedUrl, uploadDocument } from '../services/documentsService.js'
 import { finalizeSignature } from '../services/signaturesService.js'
 import { addMonthsToDate, deriveWeeksFromDates, validateContractDates } from '../lib/contractLogic.js'
@@ -71,7 +71,7 @@ function newDraftSessionId() {
  * (mesmo DocumentDossie da Fase 1, só que ainda sem contrato/locatário
  * existirem -- por isso o draft_session_id).
  */
-export default function ContractWizard({ open, onClose, onCompleted }) {
+export default function ContractWizard({ open, onClose, onCompleted, resumeContract = null }) {
   const [step, setStep] = useState(0)
   const [draftSessionId, setDraftSessionId] = useState(null)
   const [vehicles, setVehicles] = useState([])
@@ -94,6 +94,43 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
       return
     }
 
+    // Retomar a assinatura de um contrato Rascunho já existente (seção 3/4
+    // do pedido -- "aguardando assinatura" já É o status Rascunho, só
+    // faltava um jeito de reabrir e assinar de verdade em vez do atalho
+    // cego "marcar como assinado"): pula direto pra etapa de assinatura,
+    // sem recriar nada e sem tocar no sessionStorage do wizard de contrato
+    // novo (são fluxos independentes).
+    if (resumeContract) {
+      setDraftSessionId(crypto.randomUUID())
+      setStep(4)
+      setVehicles([])
+      setTenant({ ...initialTenant, ...(resumeContract.tenants || {}) })
+      setTenantErrors({})
+      setTenantId(resumeContract.tenant_id)
+      setLease({
+        vehicle_id: resumeContract.vehicle_id,
+        finance_model: resumeContract.finance_model || 'partners',
+        start_date: resumeContract.start_date,
+        duration_months: 'custom',
+        end_date: resumeContract.end_date,
+        periodicity: resumeContract.periodicity,
+        payment_amount: resumeContract.payment_amount ?? '',
+        deposit_amount: resumeContract.deposit_amount ?? '',
+        initial_km: resumeContract.initial_km ?? '',
+        observations: resumeContract.observations || '',
+      })
+      setLeaseErrors({})
+      setCustomMonths('')
+      setContract(resumeContract)
+      setSigning(false)
+      setSharing(false)
+      setSignedPdfDoc(null)
+      setError('')
+
+      listVehicles({}).then(({ data }) => setVehicles(data ?? []))
+      return
+    }
+
     // Sobrevive a um reload no meio do wizard (seção 2/4 do pedido) --
     // uma sessão de rascunho já em andamento continua de onde parou.
     const existing = sessionStorage.getItem(SESSION_KEY)
@@ -113,7 +150,7 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
     setError('')
 
     listVehicles({}).then(({ data }) => setVehicles(data ?? []))
-  }, [open])
+  }, [open, resumeContract])
 
   // Trava o scroll da página de fundo enquanto o wizard está aberto --
   // mesmo ajuste feito no modal de Detalhes da locação.
@@ -262,7 +299,7 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
     setSaving(true)
     setError('')
 
-    const { data, error: createError } = await createContract({
+    const payload = {
       vehicle_id: lease.vehicle_id,
       finance_model: lease.finance_model,
       tenant,
@@ -275,11 +312,19 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
       deposit_amount: lease.deposit_amount,
       initial_km: lease.initial_km,
       observations: lease.observations,
-    })
+    }
 
-    if (createError || !data) {
+    // Se o operador voltou da tela "Contrato gerado" pra corrigir algo
+    // (ex: valor errado por um centavo), o contrato já existe -- atualiza o
+    // MESMO registro em vez de criar um segundo (updateContract só edita
+    // Rascunho, então nunca mexe num contrato que já foi assinado).
+    const { data, error: submitError } = contract
+      ? await updateContract(contract.id, payload)
+      : await createContract(payload)
+
+    if (submitError || !data) {
       setSaving(false)
-      setError(createError?.message || 'Não foi possível gerar o contrato.')
+      setError(submitError?.message || 'Não foi possível gerar o contrato.')
       return
     }
 
@@ -550,6 +595,7 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
                 <p className="mt-2 text-sm text-slate-400">
                   {contract.contract_number} — {tenant.full_name} — {selectedVehicle?.plate}
                 </p>
+                <p className="mt-1 text-xs text-slate-500">Encontrou algo errado? Clique em "Voltar" pra corrigir antes de seguir pra assinatura.</p>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -663,7 +709,7 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
 
         {step < 5 ? (
         <div className="sticky bottom-0 flex shrink-0 items-center justify-between gap-3 border-t border-white/10 bg-slate-950 p-4 sm:p-6">
-          {step > 0 && step < 3 ? (
+          {step > 0 && step < 4 ? (
             <button type="button" onClick={goBack} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-slate-200">
               Voltar
             </button>
@@ -683,7 +729,9 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
           ) : null}
           {step === 2 ? (
             <button type="button" disabled={saving} onClick={handleContinueFromLease} className="rounded-2xl border border-amber-300/20 bg-amber-300/15 px-4 py-3 text-sm font-semibold text-amber-200 disabled:opacity-60">
-              {saving ? 'Gerando...' : 'Gerar contrato'}
+              {contract
+                ? (saving ? 'Salvando...' : 'Salvar alterações')
+                : (saving ? 'Gerando...' : 'Gerar contrato')}
             </button>
           ) : null}
           {step === 3 ? (

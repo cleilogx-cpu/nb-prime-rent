@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CheckCircle2, Download, FileText, Pencil, RotateCcw, X, XCircle } from 'lucide-react'
+import { Download, FileText, PenLine, Pencil, RotateCcw, X, XCircle } from 'lucide-react'
 import { downloadContractDocx } from '../lib/contractDocx.js'
 import { downloadContractPdf } from '../lib/contractPdf.js'
 import { formatCurrency, formatDate, formatTenantAddress } from '../lib/format.js'
@@ -8,7 +8,7 @@ import DocumentDossie from './DocumentDossie.jsx'
 
 const FINANCE_LABELS = { partners: 'Sócios', savings: 'Fundo' }
 
-export default function ContractDetailsDrawer({ open, contract, onClose, onSign, onCancel, onEdit, onReactivate, signing, reactivating }) {
+export default function ContractDetailsDrawer({ open, contract, onClose, onOpenSign, onCancel, onEdit, onReactivate, reactivating }) {
   const [downloading, setDownloading] = useState(false)
 
   if (!open || !contract) {
@@ -121,12 +121,11 @@ export default function ContractDetailsDrawer({ open, contract, onClose, onSign,
               </button>
               <button
                 type="button"
-                onClick={() => onSign(contract)}
-                disabled={signing}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-200 disabled:opacity-60"
+                onClick={() => onOpenSign(contract)}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-200"
               >
-                <CheckCircle2 size={16} />
-                {signing ? 'Ativando...' : 'Marcar como assinado'}
+                <PenLine size={16} />
+                Assinar contrato
               </button>
             </>
           ) : null}

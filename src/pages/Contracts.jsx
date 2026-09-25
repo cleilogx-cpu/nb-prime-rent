@@ -7,7 +7,7 @@ import ContractForm from '../components/ContractForm.jsx'
 import ContractWizard from '../components/ContractWizard.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import Toast from '../components/Toast.jsx'
-import { cancelContract, listContracts, reactivateContract, signContract, updateContract } from '../services/contractsService.js'
+import { cancelContract, listContracts, reactivateContract, updateContract } from '../services/contractsService.js'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 
 function SummaryCard({ label, value, icon }) {
@@ -32,9 +32,9 @@ export default function Contracts() {
   const [statusFilter, setStatusFilter] = useState('Ativo')
   const [formOpen, setFormOpen] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
+  const [resumeContract, setResumeContract] = useState(null)
   const [editingContract, setEditingContract] = useState(null)
   const [creating, setCreating] = useState(false)
-  const [signing, setSigning] = useState(false)
   const [reactivating, setReactivating] = useState(false)
   const [selectedContract, setSelectedContract] = useState(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -97,12 +97,18 @@ export default function Contracts() {
   // aos contratos") -- daí o `openDetails`.
   const handleWizardCompleted = async (contract, { openDetails = true } = {}) => {
     setWizardOpen(false)
+    setResumeContract(null)
     setToast({ message: 'Contrato assinado e ativo! A locação foi criada e o veículo está marcado como Alugado.', type: 'success' })
     await loadContracts()
     if (openDetails) {
       setSelectedContract(contract)
       setDetailsOpen(true)
     }
+  }
+
+  const handleCloseWizard = () => {
+    setWizardOpen(false)
+    setResumeContract(null)
   }
 
   const handleOpenDetails = (contract) => {
@@ -132,20 +138,14 @@ export default function Contracts() {
     setReactivating(false)
   }
 
-  const handleSign = async (contract) => {
-    setSigning(true)
-
-    const { data, error: signError } = await signContract(contract.id)
-
-    if (signError) {
-      setToast({ message: signError.message || 'Não foi possível marcar o contrato como assinado.', type: 'error' })
-    } else {
-      setToast({ message: 'Contrato ativo! A locação foi criada e o veículo está marcado como Alugado.', type: 'success' })
-      setSelectedContract(data)
-      await loadContracts()
-    }
-
-    setSigning(false)
+  // Abre o mesmo ContractWizard, só que pulando direto pra etapa de
+  // assinatura, pra um contrato Rascunho que já existe (seção 3/4 do
+  // pedido) -- antes disso a única opção aqui era "marcar como assinado"
+  // sem coletar assinatura nenhuma, o que não deixava nenhuma evidência
+  // registrada.
+  const handleOpenSign = (contract) => {
+    setDetailsOpen(false)
+    setResumeContract(contract)
   }
 
   const requestCancel = () => {
@@ -244,8 +244,9 @@ export default function Contracts() {
       />
 
       <ContractWizard
-        open={wizardOpen}
-        onClose={() => setWizardOpen(false)}
+        open={wizardOpen || !!resumeContract}
+        resumeContract={resumeContract}
+        onClose={handleCloseWizard}
         onCompleted={handleWizardCompleted}
       />
 
@@ -256,11 +257,10 @@ export default function Contracts() {
           setDetailsOpen(false)
           setSelectedContract(null)
         }}
-        onSign={handleSign}
+        onOpenSign={handleOpenSign}
         onCancel={requestCancel}
         onEdit={handleOpenEdit}
         onReactivate={handleReactivate}
-        signing={signing}
         reactivating={reactivating}
       />
 

@@ -42,20 +42,72 @@ function findDateNear(lines, keywords) {
   return null
 }
 
-function findValueNear(lines, keywords) {
-  const index = findLineIndexContaining(lines, keywords)
-  if (index === -1) {
-    return null
+// Rótulos que só aparecem colados perto de "NOME" no layout impresso da CNH
+// (legenda numerada com vários campos na mesma linha, ex: "1 NOME 2 DOC
+// IDENTIDADE...") -- se sobrar qualquer um destes na linha depois de tirar
+// "NOME", é sinal de que pegamos o rótulo, não o valor.
+const CNH_LABEL_WORDS = [
+  'NOME', 'CPF', 'DATA', 'NASCIMENTO', 'VALIDADE', 'REGISTRO', 'CATEGORIA',
+  'DOC', 'IDENTIDADE', 'EMISSOR', 'ASSINATURA', 'FILIACAO', 'FILIAÇÃO',
+  'HABILITACAO', 'HABILITAÇÃO', 'NACIONALIDADE', 'LOCAL', 'OBSERVA',
+  'RESTRI', 'PERMISSAO', 'PERMISSÃO', 'ACC', 'ESPELHO', 'CNH', 'RENACH',
+  'ORGAO', 'ÓRGÃO',
+]
+
+/**
+ * Confere se um texto "tem cara de nome de pessoa" antes de aceitar como
+ * full_name -- só letras/espaços/acentos, pelo menos duas palavras, tamanho
+ * razoável, e nenhuma palavra de rótulo sobrando. Documentos reais (foto do
+ * cartão, PDF com a CNH como imagem) frequentemente têm rótulo e valor fora
+ * de ordem ou colados na mesma linha do OCR -- aceitar "o que sobrou" sem
+ * validar já produziu nome errado (ex: fragmento de "NOME E SOBRENOME"
+ * dando "E SOBRENOME"). Falhar e deixar null é sempre melhor que salvar
+ * lixo (princípio 1 do plano: nunca inventar).
+ */
+function looksLikeName(text) {
+  if (!text) {
+    return false
+  }
+  const cleaned = text.trim()
+  if (cleaned.length < 5 || cleaned.length > 60) {
+    return false
+  }
+  if (!/^[A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ'\s-]+$/i.test(cleaned)) {
+    return false
+  }
+  const upper = cleaned.toUpperCase()
+  if (CNH_LABEL_WORDS.some((word) => upper.includes(word))) {
+    return false
+  }
+  const words = cleaned.split(/\s+/).filter(Boolean)
+  return words.length >= 2
+}
+
+/**
+ * Acha o nome do titular perto do rótulo "NOME" -- ignora "NOME SOCIAL"/
+ * "NOME DO PAI"/"NOME DA MÃE" (não é o campo que queremos) e testa vários
+ * candidatos (o que sobra na própria linha do rótulo, e as duas linhas
+ * seguintes) até achar um que passe em looksLikeName. Sem candidato válido,
+ * devolve null -- fica pra conferência manual, nunca um chute.
+ */
+function findNameNear(lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const upperLine = lines[i].toUpperCase()
+    if (!/\bNOME\b/.test(upperLine) || /NOME\s+(SOCIAL|DO PAI|DA M[AÃ]E)/.test(upperLine)) {
+      continue
+    }
+
+    const afterLabel = lines[i].replace(/.*\bNOME\b/i, '').replace(/^[:\s-]+/, '').trim()
+    const candidates = [afterLabel, lines[i + 1], lines[i + 2]]
+
+    for (const candidate of candidates) {
+      if (looksLikeName(candidate)) {
+        return candidate.trim()
+      }
+    }
   }
 
-  const label = lines[index]
-  const regex = new RegExp(keywords.join('|'), 'i')
-  const afterLabel = label.replace(regex, '').replace(/^[:\s-]+/, '').trim()
-  if (afterLabel) {
-    return afterLabel
-  }
-
-  return lines[index + 1]?.trim() || null
+  return null
 }
 
 /**
@@ -72,7 +124,7 @@ export function extractCnhFields(rawText) {
   const cnhNumberMatch = rawText.match(/\b\d{11}\b/)
 
   return {
-    full_name: findValueNear(lines, ['NOME']),
+    full_name: findNameNear(lines),
     cpf: cpfMatch ? cpfMatch[0] : null,
     birth_date: toIsoDate(findDateNear(lines, ['NASCIMENTO', 'DATA NASC'])),
     cnh_number: cnhNumberMatch ? cnhNumberMatch[0] : null,

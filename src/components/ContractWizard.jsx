@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, Download, FileText, X } from 'lucide-react'
+import { Check, Download, FileText, Share2, X } from 'lucide-react'
 import { listVehicles } from '../services/vehiclesService.js'
 import { findOrCreateTenant } from '../services/tenantsService.js'
 import { createContract, signContract } from '../services/contractsService.js'
-import { backfillContractId, backfillTenantId, uploadDocument } from '../services/documentsService.js'
+import { backfillContractId, backfillTenantId, getSignedUrl, uploadDocument } from '../services/documentsService.js'
 import { finalizeSignature } from '../services/signaturesService.js'
 import { addMonthsToDate, deriveWeeksFromDates, validateContractDates } from '../lib/contractLogic.js'
 import { DOCUMENT_TYPE, PERIODICITY } from '../lib/constants.js'
@@ -24,6 +24,7 @@ const STEPS = [
   { key: 'locacao', label: 'Locação' },
   { key: 'contrato', label: 'Contrato' },
   { key: 'assinatura', label: 'Assinatura' },
+  { key: 'concluido', label: 'Concluído' },
 ]
 
 const initialTenant = {
@@ -83,6 +84,8 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
   const [contract, setContract] = useState(null)
   const [saving, setSaving] = useState(false)
   const [signing, setSigning] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const [signedPdfDoc, setSignedPdfDoc] = useState(null)
   const [error, setError] = useState('')
   const signaturePadRef = useRef(null)
 
@@ -105,6 +108,8 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
     setCustomMonths('')
     setContract(null)
     setSigning(false)
+    setSharing(false)
+    setSignedPdfDoc(null)
     setError('')
 
     listVehicles({}).then(({ data }) => setVehicles(data ?? []))
@@ -289,9 +294,9 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
     setStep(3)
   }
 
-  const handleFinish = (finalContract = contract) => {
+  const handleFinish = (finalContract = contract, options = {}) => {
     sessionStorage.removeItem(SESSION_KEY)
-    onCompleted(finalContract)
+    onCompleted(finalContract, options)
   }
 
   // Etapa final (Fase 5): gera o PDF de verdade a partir do contrato já
@@ -328,6 +333,8 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
         throw new Error(pdfUploadError?.message || 'Não foi possível salvar o PDF assinado.')
       }
 
+      setSignedPdfDoc(pdfDoc)
+
       const signatureBlob = await signaturePadRef.current.getBlob()
       const signatureFile = new File([signatureBlob], 'assinatura.png', { type: 'image/png' })
 
@@ -361,10 +368,60 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
 
       setContract(activatedContract)
       setSigning(false)
-      handleFinish(activatedContract)
+      setStep(5)
     } catch (err) {
       setSigning(false)
       setError(err.message || 'Falha ao assinar o contrato.')
+    }
+  }
+
+  // Fase 6: compartilha o PDF assinado que JÁ está guardado no dossiê (nunca
+  // gera um novo na hora -- é sempre o mesmo arquivo cujo hash foi registrado
+  // em contract_signatures). Web Share API com arquivo é o caminho principal
+  // (funciona no WhatsApp/celular); quando o navegador não suporta
+  // compartilhar arquivo (a maioria dos desktops), cai pra abrir o PDF numa
+  // aba nova, que o usuário baixa/envia manualmente.
+  const handleShare = async () => {
+    if (!signedPdfDoc || !contract) {
+      return
+    }
+
+    setSharing(true)
+    setError('')
+
+    try {
+      const { url, error: urlError } = await getSignedUrl(signedPdfDoc.storage_path)
+      if (urlError || !url) {
+        throw new Error('Não foi possível preparar o contrato para envio.')
+      }
+
+      const fileName = `${contract.contract_number || 'contrato'}.pdf`
+
+      if (typeof navigator.share === 'function' && typeof navigator.canShare === 'function') {
+        const response = await fetch(url)
+        const blob = await response.blob()
+        const file = new File([blob], fileName, { type: 'application/pdf' })
+
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: `Contrato ${contract.contract_number}`,
+            text: `Contrato de locação -- ${tenant.full_name}`,
+          })
+          setSharing(false)
+          return
+        }
+      }
+
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (err) {
+      // AbortError = usuário fechou a folha de compartilhamento nativa sem
+      // escolher nada -- não é uma falha real, não precisa virar mensagem de erro.
+      if (err.name !== 'AbortError') {
+        setError(err.message || 'Não foi possível enviar o contrato.')
+      }
+    } finally {
+      setSharing(false)
     }
   }
 
@@ -538,8 +595,68 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
               <SignaturePad ref={signaturePadRef} />
             </div>
           ) : null}
+
+          {step === 5 && contract ? (
+            <div className="space-y-6">
+              <div className="flex flex-col items-center gap-3 rounded-[28px] border border-emerald-400/20 bg-emerald-500/10 p-6 text-center">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full border border-emerald-400/40 bg-emerald-500/10 text-emerald-300">
+                  <Check size={24} />
+                </span>
+                <h3 className="text-xl font-semibold text-white">Contrato assinado e ativo!</h3>
+                <p className="text-sm text-slate-400">A locação foi criada e o veículo já está marcado como Alugado.</p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-4 text-sm text-slate-300">
+                  <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Contrato</p>
+                  <p className="mt-1 text-white">{contract.contract_number}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-4 text-sm text-slate-300">
+                  <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Locatário</p>
+                  <p className="mt-1 text-white">{tenant.full_name}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-4 text-sm text-slate-300">
+                  <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Veículo</p>
+                  <p className="mt-1 text-white">{selectedVehicle?.plate} — {selectedVehicle?.model}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-4 text-sm text-slate-300">
+                  <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Período</p>
+                  <p className="mt-1 text-white">{lease.start_date} — {computedEndDate}</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  disabled={sharing}
+                  onClick={handleShare}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-300/15 px-4 py-4 text-sm font-semibold text-amber-200 disabled:opacity-60"
+                >
+                  <Share2 size={16} />
+                  {sharing ? 'Preparando...' : 'Enviar contrato ao locatário'}
+                </button>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => handleFinish(contract, { openDetails: true })}
+                    className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-slate-200"
+                  >
+                    Ver dossiê
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleFinish(contract, { openDetails: false })}
+                    className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-slate-200"
+                  >
+                    Voltar aos contratos
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
 
+        {step < 5 ? (
         <div className="sticky bottom-0 flex shrink-0 items-center justify-between gap-3 border-t border-white/10 bg-slate-950 p-4 sm:p-6">
           {step > 0 && step < 3 ? (
             <button type="button" onClick={goBack} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-slate-200">
@@ -575,6 +692,7 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
             </button>
           ) : null}
         </div>
+        ) : null}
       </div>
     </div>
   )

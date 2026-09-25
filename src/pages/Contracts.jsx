@@ -91,13 +91,18 @@ export default function Contracts() {
 
   // Desde a Fase 5, o wizard já assina e ativa o contrato antes de chamar
   // onCompleted (etapa "Assinatura" com captura de assinatura de verdade)
-  // -- não fica mais em Rascunho esperando um passo separado.
-  const handleWizardCompleted = async (contract) => {
+  // -- não fica mais em Rascunho esperando um passo separado. Desde a
+  // Fase 6, a tela de conclusão do próprio wizard decide se abre o drawer
+  // de detalhes (botão "Ver dossiê") ou só volta pra lista (botão "Voltar
+  // aos contratos") -- daí o `openDetails`.
+  const handleWizardCompleted = async (contract, { openDetails = true } = {}) => {
     setWizardOpen(false)
     setToast({ message: 'Contrato assinado e ativo! A locação foi criada e o veículo está marcado como Alugado.', type: 'success' })
     await loadContracts()
-    setSelectedContract(contract)
-    setDetailsOpen(true)
+    if (openDetails) {
+      setSelectedContract(contract)
+      setDetailsOpen(true)
+    }
   }
 
   const handleOpenDetails = (contract) => {

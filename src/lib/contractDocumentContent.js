@@ -10,6 +10,14 @@ export const LOCADOR = {
   endereco: 'Rua João Paulo I, 2400, Novo Horizonte, na Cidade de Porto Velho-RO',
 }
 
+// Assinatura do LOCADOR (Fase 5+) -- fixa em todo contrato, já que o Edson
+// não está presente pra assinar cada contrato novo individualmente. Por
+// enquanto é só texto em itálico, só de teste; quando tiver uma imagem de
+// assinatura escaneada de verdade, troca por uma data URL de imagem e usa
+// o mesmo mecanismo já pronto pra assinatura do locatário (locadorSignatureImage
+// em vez de locadorSignatureText, no bloco 'signature' logo abaixo).
+export const LOCADOR_SIGNATURE_TEXT = 'Edson teste'
+
 // Dados bancários fixos usados em todos os contratos.
 const PIX = {
   chave: 'clei1982@gmail.com',
@@ -41,7 +49,7 @@ function numeroPorExtenso(n) {
  * Monta o texto de todas as cláusulas com os dados reais do contrato já
  * substituídos. Segue a estrutura do modelo em papel usado pela empresa.
  */
-export function buildContractSections(contract) {
+export function buildContractSections(contract, options = {}) {
   const tenant = contract.tenants || {}
   const vehicle = contract.vehicles || {}
   const weeks = contract.weeks || 0
@@ -261,6 +269,8 @@ export function buildContractSections(contract) {
     type: 'signature',
     locador: LOCADOR.nome,
     locatario: (tenant.full_name || 'NÃO INFORMADO').toUpperCase(),
+    locadorSignatureText: LOCADOR_SIGNATURE_TEXT,
+    locatarioSignatureImage: options.locatarioSignatureImage || null,
   })
 
   sections.push({ type: 'closing', text: `Local e data: Porto Velho, RO, ${formatDate(contract.start_date)}` })

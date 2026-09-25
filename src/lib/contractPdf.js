@@ -141,21 +141,48 @@ export function renderContractPdf(sections) {
         })
         y += 1
         break
-      case 'signature':
-        ensureSpace(30)
+      case 'signature': {
+        // Desenha a imagem (ou, na falta dela, o texto fixo) da assinatura
+        // ENCOSTADA em cima da própria linha, antes de traçar a linha --
+        // senão o traço da assinatura ficaria por baixo dela. Sem nenhuma
+        // assinatura (preview antes de assinar, ou locatário que ainda não
+        // assinou), a linha fica em branco como sempre foi.
+        ensureSpace(35)
         y += 10
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(10)
-        doc.line(MARGIN, y, MARGIN + 70, y)
-        doc.line(MARGIN + 90, y, MARGIN + 160, y)
+
+        const lineWidth = 70
+        const locadorX = MARGIN
+        const locatarioX = MARGIN + 90
+        const imgWidth = 50
+        const imgHeight = 18
+
+        if (section.locadorSignatureImage) {
+          doc.addImage(section.locadorSignatureImage, 'PNG', locadorX + 5, y - imgHeight, imgWidth, imgHeight)
+        } else if (section.locadorSignatureText) {
+          doc.setFont('helvetica', 'italic')
+          doc.setFontSize(16)
+          doc.text(section.locadorSignatureText, locadorX + 10, y - 4)
+          doc.setFont('helvetica', 'normal')
+          doc.setFontSize(10)
+        }
+
+        if (section.locatarioSignatureImage) {
+          doc.addImage(section.locatarioSignatureImage, 'PNG', locatarioX + 5, y - imgHeight, imgWidth, imgHeight)
+        }
+
+        doc.line(locadorX, y, locadorX + lineWidth, y)
+        doc.line(locatarioX, y, locatarioX + lineWidth, y)
         y += 5
-        doc.text(section.locador, MARGIN, y)
-        doc.text(section.locatario, MARGIN + 90, y)
+        doc.text(section.locador, locadorX, y)
+        doc.text(section.locatario, locatarioX, y)
         y += 5
-        doc.text('LOCADOR', MARGIN, y)
-        doc.text('LOCATÁRIO', MARGIN + 90, y)
+        doc.text('LOCADOR', locadorX, y)
+        doc.text('LOCATÁRIO', locatarioX, y)
         y += 15
         break
+      }
       case 'closing':
         ensureSpace(10)
         writeLines([section.text], { size: 10, style: 'normal', gap: 6, align: 'center' })
@@ -184,8 +211,8 @@ export function renderContractPdf(sections) {
  * Gera o PDF do contrato e devolve um Blob, pronto pra baixar ou anexar
  * (ex: subir pro Supabase Storage como o documento assinado).
  */
-export function generateContractPdfBlob(contract) {
-  const sections = buildContractSections(contract)
+export function generateContractPdfBlob(contract, options = {}) {
+  const sections = buildContractSections(contract, options)
   const doc = renderContractPdf(sections)
   return doc.output('blob')
 }
@@ -193,8 +220,8 @@ export function generateContractPdfBlob(contract) {
 /**
  * Gera e já dispara o download no navegador.
  */
-export function downloadContractPdf(contract) {
-  const sections = buildContractSections(contract)
+export function downloadContractPdf(contract, options = {}) {
+  const sections = buildContractSections(contract, options)
   const doc = renderContractPdf(sections)
   const fileName = `${contract.contract_number || 'contrato'}.pdf`
   doc.save(fileName)

@@ -82,6 +82,10 @@ const SignaturePad = forwardRef(function SignaturePad(_props, ref) {
     isEmpty: () => !hasStrokeRef.current,
     clear: handleClear,
     getBlob: () => new Promise((resolve) => canvasRef.current.toBlob(resolve, 'image/png')),
+    // Versão síncrona (data URL) pra desenhar direto no PDF via jsPDF
+    // addImage -- getBlob() continua existindo à parte pra subir o arquivo
+    // de evidência no dossiê.
+    getDataUrl: () => canvasRef.current.toDataURL('image/png'),
   }))
 
   return (

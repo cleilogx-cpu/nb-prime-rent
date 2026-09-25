@@ -320,7 +320,12 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
     setError('')
 
     try {
-      const pdfBlob = generateContractPdfBlob(contract)
+      // A assinatura do locatário entra desenhada de verdade na linha dela
+      // no PDF final (não fica só como um documento separado no dossiê) --
+      // a do locador (Edson) é fixa e já vem embutida em buildContractSections,
+      // sem precisar passar nada aqui.
+      const signatureDataUrl = signaturePadRef.current.getDataUrl()
+      const pdfBlob = generateContractPdfBlob(contract, { locatarioSignatureImage: signatureDataUrl })
       const pdfFile = new File([pdfBlob], `${contract.contract_number || 'contrato'}.pdf`, { type: 'application/pdf' })
 
       const { data: pdfDoc, error: pdfUploadError } = await uploadDocument(pdfFile, {

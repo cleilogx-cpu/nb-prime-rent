@@ -89,9 +89,12 @@ export default function Contracts() {
     setCreating(false)
   }
 
+  // Desde a Fase 5, o wizard já assina e ativa o contrato antes de chamar
+  // onCompleted (etapa "Assinatura" com captura de assinatura de verdade)
+  // -- não fica mais em Rascunho esperando um passo separado.
   const handleWizardCompleted = async (contract) => {
     setWizardOpen(false)
-    setToast({ message: 'Contrato criado como Rascunho. Gere o documento e envie para assinatura.', type: 'success' })
+    setToast({ message: 'Contrato assinado e ativo! A locação foi criada e o veículo está marcado como Alugado.', type: 'success' })
     await loadContracts()
     setSelectedContract(contract)
     setDetailsOpen(true)

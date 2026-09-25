@@ -1,18 +1,20 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Download, FileText, X } from 'lucide-react'
 import { listVehicles } from '../services/vehiclesService.js'
 import { findOrCreateTenant } from '../services/tenantsService.js'
-import { createContract } from '../services/contractsService.js'
-import { backfillContractId, backfillTenantId } from '../services/documentsService.js'
+import { createContract, signContract } from '../services/contractsService.js'
+import { backfillContractId, backfillTenantId, uploadDocument } from '../services/documentsService.js'
+import { finalizeSignature } from '../services/signaturesService.js'
 import { addMonthsToDate, deriveWeeksFromDates, validateContractDates } from '../lib/contractLogic.js'
-import { PERIODICITY } from '../lib/constants.js'
+import { DOCUMENT_TYPE, PERIODICITY } from '../lib/constants.js'
 import { downloadContractDocx } from '../lib/contractDocx.js'
-import { downloadContractPdf } from '../lib/contractPdf.js'
+import { downloadContractPdf, generateContractPdfBlob } from '../lib/contractPdf.js'
 import { formatCurrency } from '../lib/format.js'
 import VehicleStepFields from './VehicleStepFields.jsx'
 import TenantFields from './TenantFields.jsx'
 import LeaseTermsStepFields from './LeaseTermsStepFields.jsx'
 import DocumentDossie from './DocumentDossie.jsx'
+import SignaturePad from './SignaturePad.jsx'
 
 const SESSION_KEY = 'contractWizardDraftSessionId'
 
@@ -21,6 +23,7 @@ const STEPS = [
   { key: 'conferir', label: 'Conferir dados' },
   { key: 'locacao', label: 'Locação' },
   { key: 'contrato', label: 'Contrato' },
+  { key: 'assinatura', label: 'Assinatura' },
 ]
 
 const initialTenant = {
@@ -79,7 +82,9 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
   const [customMonths, setCustomMonths] = useState('')
   const [contract, setContract] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [signing, setSigning] = useState(false)
   const [error, setError] = useState('')
+  const signaturePadRef = useRef(null)
 
   useEffect(() => {
     if (!open) {
@@ -99,6 +104,7 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
     setLeaseErrors({})
     setCustomMonths('')
     setContract(null)
+    setSigning(false)
     setError('')
 
     listVehicles({}).then(({ data }) => setVehicles(data ?? []))
@@ -283,9 +289,83 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
     setStep(3)
   }
 
-  const handleFinish = () => {
+  const handleFinish = (finalContract = contract) => {
     sessionStorage.removeItem(SESSION_KEY)
-    onCompleted(contract)
+    onCompleted(finalContract)
+  }
+
+  // Etapa final (Fase 5): gera o PDF de verdade a partir do contrato já
+  // criado (generateContractPdfBlob, reaproveitado sem nenhuma mudança --
+  // a assinatura não é desenhada dentro do PDF, ela vira um documento
+  // separado no dossiê, a evidência de verdade fica no hash calculado pelo
+  // servidor + registro em contract_signatures), sobe PDF + imagem da
+  // assinatura pro dossiê, fecha a assinatura (finalizeSignature, que
+  // calcula o hash e captura IP/user-agent no servidor -- nunca confia em
+  // nada vindo do navegador) e só then ativa o contrato (signContract,
+  // reaproveitado sem mudança nenhuma nele). Se o finalize falhar, o
+  // contrato continua Rascunho de propósito -- nunca ativa sem o registro
+  // de evidência gravado.
+  const handleSign = async () => {
+    if (!contract || !signaturePadRef.current || signaturePadRef.current.isEmpty()) {
+      setError('Colete a assinatura do locatário antes de continuar.')
+      return
+    }
+
+    setSigning(true)
+    setError('')
+
+    try {
+      const pdfBlob = generateContractPdfBlob(contract)
+      const pdfFile = new File([pdfBlob], `${contract.contract_number || 'contrato'}.pdf`, { type: 'application/pdf' })
+
+      const { data: pdfDoc, error: pdfUploadError } = await uploadDocument(pdfFile, {
+        draftSessionId,
+        docType: DOCUMENT_TYPE.CONTRATO_ASSINADO_PDF,
+        tenantId,
+        contractId: contract.id,
+      })
+      if (pdfUploadError || !pdfDoc) {
+        throw new Error(pdfUploadError?.message || 'Não foi possível salvar o PDF assinado.')
+      }
+
+      const signatureBlob = await signaturePadRef.current.getBlob()
+      const signatureFile = new File([signatureBlob], 'assinatura.png', { type: 'image/png' })
+
+      const { data: sigDoc, error: sigUploadError } = await uploadDocument(signatureFile, {
+        draftSessionId,
+        docType: DOCUMENT_TYPE.ASSINATURA_IMAGEM,
+        tenantId,
+        contractId: contract.id,
+      })
+      if (sigUploadError || !sigDoc) {
+        throw new Error(sigUploadError?.message || 'Não foi possível salvar a imagem da assinatura.')
+      }
+
+      const { data: signature, error: finalizeError } = await finalizeSignature({
+        contractId: contract.id,
+        signedPdfDocumentId: pdfDoc.id,
+        signatureImageDocumentId: sigDoc.id,
+        signerFullName: tenant.full_name,
+        signerCpf: tenant.cpf,
+      })
+      if (finalizeError || !signature) {
+        throw new Error(finalizeError?.message || 'Não foi possível registrar a assinatura.')
+      }
+
+      const { data: activatedContract, error: signError } = await signContract(contract.id, {
+        signed_document_url: pdfDoc.storage_path,
+      })
+      if (signError || !activatedContract) {
+        throw new Error(signError?.message || 'Assinatura registrada, mas não foi possível ativar o contrato.')
+      }
+
+      setContract(activatedContract)
+      setSigning(false)
+      handleFinish(activatedContract)
+    } catch (err) {
+      setSigning(false)
+      setError(err.message || 'Falha ao assinar o contrato.')
+    }
   }
 
   const goBack = () => {
@@ -443,6 +523,21 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
               <DocumentDossie contractId={contract.id} tenantId={tenantId} />
             </div>
           ) : null}
+
+          {step === 4 && contract ? (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-xl font-semibold text-white">Assinatura do locatário</h3>
+                <p className="mt-2 text-sm text-slate-400">
+                  Peça para {tenant.full_name || 'o locatário'} assinar no campo abaixo (no celular ou no
+                  computador). Ao confirmar, o sistema gera o PDF final, registra a assinatura com data/hora/
+                  hash do documento e ativa o contrato -- a locação começa e o veículo passa para Alugado.
+                </p>
+              </div>
+
+              <SignaturePad ref={signaturePadRef} />
+            </div>
+          ) : null}
         </div>
 
         <div className="sticky bottom-0 flex shrink-0 items-center justify-between gap-3 border-t border-white/10 bg-slate-950 p-4 sm:p-6">
@@ -470,8 +565,13 @@ export default function ContractWizard({ open, onClose, onCompleted }) {
             </button>
           ) : null}
           {step === 3 ? (
-            <button type="button" onClick={handleFinish} className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-200">
-              Concluir
+            <button type="button" onClick={() => setStep(4)} className="rounded-2xl border border-amber-300/20 bg-amber-300/15 px-4 py-3 text-sm font-semibold text-amber-200">
+              Continuar para assinatura
+            </button>
+          ) : null}
+          {step === 4 ? (
+            <button type="button" disabled={signing} onClick={handleSign} className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-200 disabled:opacity-60">
+              {signing ? 'Assinando...' : 'Assinar e ativar contrato'}
             </button>
           ) : null}
         </div>

@@ -84,8 +84,12 @@ const SignaturePad = forwardRef(function SignaturePad(_props, ref) {
     getBlob: () => new Promise((resolve) => canvasRef.current.toBlob(resolve, 'image/png')),
     // Versão síncrona (data URL) pra desenhar direto no PDF via jsPDF
     // addImage -- getBlob() continua existindo à parte pra subir o arquivo
-    // de evidência no dossiê.
-    getDataUrl: () => canvasRef.current.toDataURL('image/png'),
+    // de evidência no dossiê. JPEG (não PNG) de propósito: o jsPDF tem bug
+    // conhecido com o canal alfa de PNG vindo de canvas.toDataURL, que
+    // deixava a assinatura embutida no PDF só que invisível -- fundo do
+    // canvas já é branco opaco (paintBackground), então JPEG sem alfa
+    // resolve sem perder nada visualmente.
+    getDataUrl: () => canvasRef.current.toDataURL('image/jpeg', 0.92),
   }))
 
   return (

@@ -159,7 +159,7 @@ export function renderContractPdf(sections) {
         const imgHeight = 18
 
         if (section.locadorSignatureImage) {
-          doc.addImage(section.locadorSignatureImage, 'PNG', locadorX + 5, y - imgHeight, imgWidth, imgHeight)
+          doc.addImage(section.locadorSignatureImage, 'JPEG', locadorX + 5, y - imgHeight, imgWidth, imgHeight)
         } else if (section.locadorSignatureText) {
           doc.setFont('helvetica', 'italic')
           doc.setFontSize(16)
@@ -169,7 +169,7 @@ export function renderContractPdf(sections) {
         }
 
         if (section.locatarioSignatureImage) {
-          doc.addImage(section.locatarioSignatureImage, 'PNG', locatarioX + 5, y - imgHeight, imgWidth, imgHeight)
+          doc.addImage(section.locatarioSignatureImage, 'JPEG', locatarioX + 5, y - imgHeight, imgWidth, imgHeight)
         }
 
         doc.line(locadorX, y, locadorX + lineWidth, y)

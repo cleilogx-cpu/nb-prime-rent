@@ -85,23 +85,30 @@ export function formatCPF(value) {
  * que é como o restante do sistema já grava) recebem o prefixo. Qualquer
  * coisa fora desse formato (poucos dígitos, texto sem número) devolve `null`
  * em vez de montar um link quebrado.
+ *
+ * `message`, quando passado, já abre a conversa com o texto escrito no
+ * campo (usado pra mandar o contrato -- ver ContractWizard.handleShare).
  */
-export function buildWhatsAppLink(phone) {
+export function buildWhatsAppLink(phone, message) {
   const digits = String(phone ?? '').replace(/\D/g, '')
 
   if (!digits) {
     return null
   }
 
+  let number = null
   if (digits.length === 12 || digits.length === 13) {
-    return `https://wa.me/${digits}`
+    number = digits
+  } else if (digits.length === 10 || digits.length === 11) {
+    number = `55${digits}`
   }
 
-  if (digits.length === 10 || digits.length === 11) {
-    return `https://wa.me/55${digits}`
+  if (!number) {
+    return null
   }
 
-  return null
+  const base = `https://wa.me/${number}`
+  return message ? `${base}?text=${encodeURIComponent(message)}` : base
 }
 
 export function formatDate(value) {

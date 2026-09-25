@@ -9,7 +9,7 @@ import { addMonthsToDate, deriveWeeksFromDates, validateContractDates } from '..
 import { DOCUMENT_TYPE, PERIODICITY } from '../lib/constants.js'
 import { downloadContractDocx } from '../lib/contractDocx.js'
 import { downloadContractPdf, generateContractPdfBlob } from '../lib/contractPdf.js'
-import { formatCurrency } from '../lib/format.js'
+import { buildWhatsAppLink, formatCurrency } from '../lib/format.js'
 import VehicleStepFields from './VehicleStepFields.jsx'
 import TenantFields from './TenantFields.jsx'
 import LeaseTermsStepFields from './LeaseTermsStepFields.jsx'
@@ -425,12 +425,16 @@ export default function ContractWizard({ open, onClose, onCompleted, resumeContr
     }
   }
 
-  // Fase 6: compartilha o PDF assinado que JÁ está guardado no dossiê (nunca
-  // gera um novo na hora -- é sempre o mesmo arquivo cujo hash foi registrado
-  // em contract_signatures). Web Share API com arquivo é o caminho principal
-  // (funciona no WhatsApp/celular); quando o navegador não suporta
-  // compartilhar arquivo (a maioria dos desktops), cai pra abrir o PDF numa
-  // aba nova, que o usuário baixa/envia manualmente.
+  // Fase 6 (ajustado depois do feedback do cliente: a folha de compartilhar
+  // do Windows/Android pedindo pra escolher o app de novo, toda vez, era
+  // incômodo): compartilha o PDF assinado que JÁ está guardado no dossiê
+  // (nunca gera um novo na hora). Com telefone do locatário cadastrado, vai
+  // DIRETO pra conversa dele no WhatsApp (wa.me), mensagem com o link do
+  // contrato já escrita -- só falta o operador tocar em enviar (nenhum app
+  // consegue mandar mensagem no WhatsApp de terceiro sem esse toque manual,
+  // é limitação do próprio WhatsApp, não dá pra pular). Sem telefone
+  // válido, cai pro compartilhamento nativo do sistema operacional de
+  // antes (Web Share API com arquivo, ou abrir o PDF numa aba nova).
   const handleShare = async () => {
     if (!signedPdfDoc || !contract) {
       return
@@ -440,9 +444,22 @@ export default function ContractWizard({ open, onClose, onCompleted, resumeContr
     setError('')
 
     try {
-      const { url, error: urlError } = await getSignedUrl(signedPdfDoc.storage_path)
+      // Expira em 7 dias (não nos 5 minutos padrão) -- o locatário pode abrir
+      // a mensagem no WhatsApp bem depois de enviada, não só na hora.
+      const { url, error: urlError } = await getSignedUrl(signedPdfDoc.storage_path, 60 * 60 * 24 * 7)
       if (urlError || !url) {
         throw new Error('Não foi possível preparar o contrato para envio.')
+      }
+
+      const whatsappLink = buildWhatsAppLink(
+        tenant.phone,
+        `Olá, ${tenant.full_name}! Segue o contrato ${contract.contract_number} -- NB Prime Rent.\n${url}`,
+      )
+
+      if (whatsappLink) {
+        window.open(whatsappLink, '_blank', 'noopener,noreferrer')
+        setSharing(false)
+        return
       }
 
       const fileName = `${contract.contract_number || 'contrato'}.pdf`

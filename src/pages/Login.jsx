@@ -42,10 +42,15 @@ export default function Login() {
     setSubmitting(false)
 
     if (error) {
-  console.error('Erro do Supabase:', error)
-  setErrorMessage(`${error.message} — código: ${error.code || 'sem código'}`)
-  return
-}
+      // O detalhe completo (mensagem + código do Supabase) só vai pro console
+      // -- útil pra quem está com o DevTools aberto debugando, mas não deve
+      // aparecer pro usuário final: mensagem de erro genérica demais expõe
+      // informação interna (auditoria de segurança, seção 5/9 do pedido:
+      // "mensagens de erro expondo informações internas").
+      console.error('Erro do Supabase:', error)
+      setErrorMessage('E-mail ou senha inválidos. Confira os dados e tente novamente.')
+      return
+    }
   }
 
   return (

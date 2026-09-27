@@ -1,9 +1,5 @@
 import { useEffect, useState } from 'react'
-import {
-  createPaymentWithDestinationRules,
-  updatePayment,
-  getLastConfirmedPartnerBeneficiary,
-} from '../services/paymentsService.js'
+import { createPaymentWithDestinationRules, updatePayment } from '../services/paymentsService.js'
 import { CONTRACT_STATUS, PERIODICITY_LABELS, RECEIPT_TYPE } from '../lib/constants.js'
 import { formatCurrency } from '../lib/format.js'
 
@@ -19,8 +15,6 @@ function buildInitialForm(payment, lockedContext) {
     payment_date: payment?.payment_date || todayIso(),
     amount: payment?.amount || lockedContext?.amount || '',
     payment_method: payment?.payment_method || 'PIX',
-    finance_model: payment?.finance_model || lockedContext?.finance_model || 'partners',
-    destination: payment?.destination || '',
     periodicity: payment?.periodicity || 'weekly',
     notes: payment?.notes || lockedContext?.notes || '',
     provisional_receipt: payment?.provisional_receipt || '',
@@ -73,23 +67,11 @@ export default function PaymentForm({ open, onClose, locations = [], vehicles = 
     }))
   }
 
-  const handleSelectLocation = async (locationId) => {
+  const handleSelectLocation = (locationId) => {
     const location = locations.find((item) => item.id === locationId)
     if (!location) {
       return
     }
-
-    const nextVehicle = vehicles.find((vehicle) => vehicle.id === location.vehicle_id) || null
-    const { data: lastBeneficiary } = await getLastConfirmedPartnerBeneficiary(location.vehicle_id)
-
-    const proposedBeneficiary =
-      lastBeneficiary === 'Clei'
-        ? 'Edson'
-        : lastBeneficiary === 'Edson'
-          ? 'Clei'
-          : (nextVehicle?.next_destination || 'Clei')
-
-    const financeModel = location.contracts?.finance_model || 'partners'
 
     setForm((current) => ({
       ...current,
@@ -97,9 +79,7 @@ export default function PaymentForm({ open, onClose, locations = [], vehicles = 
       contract_id: location.contract_id || '',
       tenant_id: location.tenant_id,
       vehicle_id: location.vehicle_id,
-      finance_model: financeModel,
       periodicity: location.periodicity || 'weekly',
-      destination: financeModel === 'savings' ? 'Fundo do veículo' : (proposedBeneficiary || ''),
       amount: location.payment_amount || current.amount,
       notes: `${location.vehicles?.plate || ''} - ${location.tenants?.full_name || ''}`,
     }))
@@ -123,7 +103,6 @@ export default function PaymentForm({ open, onClose, locations = [], vehicles = 
       location_id: '',
       vehicle_id: deposit.vehicle_id,
       tenant_id: deposit.tenant_id,
-      finance_model: deposit.contracts?.finance_model || 'partners',
       amount: balance > 0 ? balance : current.amount,
       notes: `${deposit.vehicles?.plate || ''} - ${deposit.tenants?.full_name || ''} (Caução)`,
     }))
@@ -142,8 +121,6 @@ export default function PaymentForm({ open, onClose, locations = [], vehicles = 
       contract_id: form.contract_id || null,
       tenant_id: form.tenant_id || selectedLocation?.tenant_id || null,
       vehicle_id: form.vehicle_id,
-      finance_model: form.finance_model,
-      destination: form.destination,
       payment_date: form.payment_date || todayIso(),
       amount: form.amount,
       receipt_type: form.receipt_type,
@@ -286,11 +263,6 @@ export default function PaymentForm({ open, onClose, locations = [], vehicles = 
               <option value="Transferência">Transferência</option>
               <option value="Cartão">Cartão</option>
             </select>
-          </label>
-
-          <label className="space-y-2 md:col-span-2">
-            <span className="text-sm font-medium text-slate-300">Destino</span>
-            <input value={form.destination} onChange={(event) => setForm((current) => ({ ...current, destination: event.target.value }))} placeholder="Clei, Edson ou Fundo do veículo" className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none" />
           </label>
 
           <label className="space-y-2 md:col-span-2">

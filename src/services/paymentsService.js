@@ -1,10 +1,5 @@
 import { supabase } from '../lib/supabaseClient.js'
-import {
-  buildPaymentDestinationLabel,
-  calculateNextDueDate,
-  calculateNextPartnerBeneficiary,
-  validateFinancialDestination,
-} from '../lib/paymentLogic.js'
+import { calculateNextDueDate, calculateNextPartnerBeneficiary } from '../lib/paymentLogic.js'
 import { matchPaymentToCharge, unmatchChargeForPayment } from './chargesService.js'
 import { recalculateReceivedAmount } from './depositsService.js'
 import { RECEIPT_TYPE } from '../lib/constants.js'
@@ -50,47 +45,15 @@ function normalizePaymentMethod(value) {
   return paymentMethodMap[normalized] ?? 'other'
 }
 
-function normalizeDestination(destination, financeModel, beneficiary) {
-  if (financeModel === 'savings') {
-    return 'Fundo do veículo'
-  }
-
-  const calculatedDestination = buildPaymentDestinationLabel(
-    destination,
-    financeModel,
-  )
-
-  if (
-    calculatedDestination === 'Clei' ||
-    calculatedDestination === 'Edson' ||
-    calculatedDestination === 'Transporte' ||
-    calculatedDestination === 'Outro'
-  ) {
-    return calculatedDestination
-  }
-
-  if (beneficiary === 'Clei' || beneficiary === 'Edson') {
-    return beneficiary
-  }
-
-  return 'Outro'
-}
-
+// Distribuição/destino (sócios x fundo, Clei/Edson) foi aposentada -- esta
+// função é compartilhada por createPayment/updatePayment, então não decide
+// mais nenhum valor pros dois campos: finance_model/destination
+// simplesmente não entram no objeto devolvido. Pra um recebimento NOVO
+// (createPayment), isso grava null (a coluna deixou de ser NOT NULL --
+// migration 010). Pra editar um recebimento existente (updatePayment), o
+// UPDATE não toca nessas colunas, preservando o valor histórico real (ou
+// o null de um recebimento já criado no modelo novo).
 function normalizePaymentPayload(payload) {
-  const financeModel = payload.finance_model ?? 'partners'
-
-  const destination = normalizeDestination(
-    payload.destination,
-    financeModel,
-    payload.beneficiary,
-  )
-
-  validateFinancialDestination({
-    financeModel,
-    destination,
-    beneficiary: payload.beneficiary,
-  })
-
   return {
     vehicle_id: payload.vehicle_id,
     rental_id: payload.rental_id || null,
@@ -111,9 +74,6 @@ function normalizePaymentPayload(payload) {
     ),
 
     payment_method: normalizePaymentMethod(payload.payment_method),
-
-    finance_model: financeModel,
-    destination,
 
     reference_period:
       payload.reference_period ?? payload.period ?? null,
@@ -343,15 +303,15 @@ export async function cancelPayment(id, payload = {}) {
     if (data.receipt_type === RECEIPT_TYPE.RENT) {
       await unmatchChargeForPayment(data.id)
 
-      // Devolve a vez pro sócio que tinha recebido este pagamento --
-      // cancelar não pode "consumir" a alternância. `next_destination`
-      // sempre guarda o valor já invertido (quem paga gera `flip(quem
-      // recebeu)`, e o fallback de leitura em getLastConfirmedPartnerBeneficiary
-      // inverte de novo) -- por isso o reverte aqui também precisa passar
-      // pelo mesmo `calculateNextPartnerBeneficiary`, não gravar
-      // `data.destination` puro (isso duplicaria a inversão e mandaria a
-      // próxima cobrança pra pessoa errada). Desfaz exatamente o avanço que
-      // a criação deste pagamento tinha feito (seção 21).
+      // Distribuição/rodízio foi aposentada pra recebimento novo (createPayment
+      // não escreve mais finance_model='partners'/destination='Clei'|'Edson'),
+      // então este bloco só é alcançado ao cancelar um recebimento ANTIGO --
+      // devolve a vez pro sócio que tinha recebido este pagamento, já que
+      // cancelar não pode "consumir" a alternância. Passa por
+      // `calculateNextPartnerBeneficiary` (não grava `data.destination` puro)
+      // porque `next_destination` já guarda o valor invertido da criação --
+      // gravar o valor cru duplicaria a inversão e mandaria a próxima cobrança
+      // pra pessoa errada.
       if (
         data.finance_model === 'partners' &&
         (data.destination === 'Clei' || data.destination === 'Edson')
@@ -385,121 +345,13 @@ export async function getPaymentById(id) {
   }
 }
 
-// NOTA (Fase 2): finance_model virou parte do contrato (pode mudar por
-// locatário). next_destination continua no veículo de propósito — é a fila
-// de rodízio Clei/Edson daquele carro, contínua entre contratos.
-//
-// Só recebimento de Aluguel conta pra fila -- Caução não deve alternar nem
-// consumir a vez de ninguém (ela ainda é atribuída a um sócio pra saber pra
-// quem foi o dinheiro, mas isso é decidido em createPaymentWithDestinationRules
-// sem nunca avançar a fila).
-export async function getLastConfirmedPartnerBeneficiary(vehicleId) {
-  const { data, error } = await supabase
-    .from(PAYMENT_TABLE)
-    .select('destination,created_at')
-    .eq('vehicle_id', vehicleId)
-    .eq('finance_model', 'partners')
-    .eq('receipt_type', RECEIPT_TYPE.RENT)
-    .eq('is_cancelled', false)
-    .in('destination', ['Clei', 'Edson'])
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (error) {
-    return { data: null, error }
-  }
-
-  return {
-    data: data?.destination ?? null,
-    error: null,
-  }
-}
-
-export async function calculateNextPartnerBeneficiaryForVehicle(
-  vehicleId,
-  vehicleNextDestination,
-) {
-  const { data: lastBeneficiary, error } =
-    await getLastConfirmedPartnerBeneficiary(vehicleId)
-
-  if (error) {
-    return { data: null, error }
-  }
-
-  const nextBeneficiary = calculateNextPartnerBeneficiary(
-    lastBeneficiary || vehicleNextDestination,
-  )
-
-  return {
-    data: nextBeneficiary,
-    error: null,
-  }
-}
-
+// Distribuição/rodízio Clei-Edson aposentada -- recebimento novo não lê nem
+// grava vehicles.next_destination, não olha o finance_model do contrato
+// ativo, não calcula beneficiário nenhum. O nome da função ficou (evita
+// mexer no import do PaymentForm.jsx), mas o corpo virou só "cria o
+// recebimento e liga à cobrança/caução correspondente".
 export async function createPaymentWithDestinationRules(payload) {
-  const { data: vehicle, error: vehicleError } = await supabase
-    .from('vehicles')
-    .select('id,next_destination')
-    .eq('id', payload.vehicle_id)
-    .single()
-
-  if (vehicleError) {
-    return {
-      data: null,
-      error: vehicleError,
-    }
-  }
-
-  const { data: activeContract } = await supabase
-    .from('contracts')
-    .select('finance_model')
-    .eq('vehicle_id', payload.vehicle_id)
-    .eq('status', 'Ativo')
-    .maybeSingle()
-
-  const financeModel =
-    payload.finance_model || activeContract?.finance_model || 'partners'
-
-  let destination = 'Fundo do veículo'
-  let beneficiary = null
-
-  if (financeModel === 'partners') {
-    const { data: nextBeneficiary, error } =
-      await calculateNextPartnerBeneficiaryForVehicle(
-        payload.vehicle_id,
-        vehicle.next_destination,
-      )
-
-    if (error) {
-      return {
-        data: null,
-        error,
-      }
-    }
-
-    beneficiary = nextBeneficiary
-    destination = nextBeneficiary
-  }
-
-  const result = await createPayment({
-    ...payload,
-    finance_model: financeModel,
-    beneficiary,
-    destination,
-  })
-
-  // Só Aluguel avança a fila -- Caução usa o mesmo `beneficiary` (pra saber
-  // pra quem foi o dinheiro) mas nunca consome a vez de ninguém (seção 20).
-  if (!result.error && financeModel === 'partners' && payload.receipt_type === RECEIPT_TYPE.RENT) {
-    const followingBeneficiary =
-      calculateNextPartnerBeneficiary(beneficiary)
-
-    await updateVehicleNextDestination(
-      payload.vehicle_id,
-      followingBeneficiary,
-    )
-  }
+  const result = await createPayment(payload)
 
   if (!result.error && result.data) {
     // Liga o recebimento à cobrança/caução correspondente -- é isso que dá

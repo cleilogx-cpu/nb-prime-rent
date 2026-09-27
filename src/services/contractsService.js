@@ -51,7 +51,12 @@ function normalizeContractPayload(payload) {
       ? null
       : Number(payload.initial_km),
     billing_day: payload.billing_day || null,
-    finance_model: payload.finance_model || 'partners',
+    // finance_model não entra aqui de propósito -- essa função é
+    // compartilhada por createContract/updateContract, e escrever um
+    // default aqui faria updateContract sobrescrever o valor histórico de
+    // um contrato antigo (ou um null de um contrato novo) toda vez que
+    // alguém editasse qualquer outro campo. createContract grava null
+    // explicitamente; updateContract nunca deve tocar essa coluna.
     observations: payload.observations || null,
     clauses: payload.clauses || null,
   }
@@ -117,6 +122,10 @@ export async function createContract(payload) {
     .from(TABLE)
     .insert({
       ...normalizedPayload,
+      // Distribuição do aluguel (sócios x fundo) foi aposentada -- todo
+      // contrato novo grava null aqui, sempre, independente do que payload
+      // eventualmente contenha.
+      finance_model: null,
       contract_number: generateContractNumber(new Date().getFullYear()),
       status: 'Rascunho',
       // Snapshot da multa/juros padrão no momento da criação (seção 13 do

@@ -117,6 +117,16 @@ export const OCR_STATUS = {
   NOT_APPLICABLE: 'not_applicable',
 }
 
+// Distribuição do aluguel (sócios x fundo) -- aposentada pra contrato novo
+// (finance_model fica null, campo nem aparece mais no formulário), mas
+// contratos/locações antigos ainda têm esse valor gravado e continuam
+// mostrando o rótulo normalmente. Consolidado aqui porque a mesma
+// FINANCE_LABELS estava duplicada em ContractCard/ContractDetailsDrawer/Historico.
+export const FINANCE_MODEL_LABELS = {
+  partners: 'Sócios',
+  savings: 'Fundo',
+}
+
 // Multa/juros padrão gravados em CADA contrato na criação (snapshot --
 // contractsService.createContract grava esses valores nas colunas
 // late_fee_percent/late_interest_percent_month do próprio contrato, nunca

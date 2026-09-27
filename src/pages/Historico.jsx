@@ -5,10 +5,8 @@ import { listPayments } from '../services/paymentsService.js'
 import { listExpenses } from '../services/expensesService.js'
 import { listDeposits } from '../services/depositsService.js'
 import { formatCurrency, formatDate, computeLocationFinancials } from '../services/locationLogic.js'
-import { PERIODICITY_LABELS } from '../lib/constants.js'
+import { FINANCE_MODEL_LABELS, PERIODICITY_LABELS } from '../lib/constants.js'
 import LoadingScreen from '../components/LoadingScreen.jsx'
-
-const FINANCE_LABELS = { partners: 'Sócios', savings: 'Fundo' }
 
 function statusBadgeStyle(status) {
   if (status === 'Cancelada') {
@@ -68,10 +66,12 @@ function HistoryCard({ location, payments, expenses, deposits }) {
               {formatDate(location.start_date)} — {formatDate(location.actual_end_date || location.expected_end_date)}
             </p>
           </div>
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Distribuição</p>
-            <p className="mt-2 text-base font-medium text-white">{FINANCE_LABELS[location.contracts?.finance_model] || 'Não informado'}</p>
-          </div>
+          {location.contracts?.finance_model ? (
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Distribuição</p>
+              <p className="mt-2 text-base font-medium text-white">{FINANCE_MODEL_LABELS[location.contracts.finance_model] || location.contracts.finance_model}</p>
+            </div>
+          ) : null}
         </div>
         <div className="space-y-3">
           <div>

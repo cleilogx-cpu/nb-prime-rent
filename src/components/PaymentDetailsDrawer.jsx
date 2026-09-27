@@ -66,19 +66,25 @@ export default function PaymentDetailsDrawer({ open, payment, onClose }) {
             </div>
           </div>
 
-          <div className="rounded-[24px] border border-white/10 bg-slate-900/70 p-5">
-            <p className="text-sm uppercase tracking-[0.35em] text-slate-500">Modelo e destino</p>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Modelo financeiro</p>
-                <p className="mt-2 text-base font-medium text-white">{metadata.financeModel === 'savings' ? 'Fundo do veículo' : 'Alternância entre sócios'}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Destino</p>
-                <p className="mt-2 text-base font-medium text-white"><PaymentDestinationBadge destination={payment.destination} financeModel={metadata.financeModel} /></p>
+          {payment.finance_model || payment.destination ? (
+            <div className="rounded-[24px] border border-white/10 bg-slate-900/70 p-5">
+              <p className="text-sm uppercase tracking-[0.35em] text-slate-500">Modelo e destino</p>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                {payment.finance_model ? (
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Modelo financeiro</p>
+                    <p className="mt-2 text-base font-medium text-white">{payment.finance_model === 'savings' ? 'Fundo do veículo' : 'Alternância entre sócios'}</p>
+                  </div>
+                ) : null}
+                {payment.destination ? (
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Destino</p>
+                    <p className="mt-2 text-base font-medium text-white"><PaymentDestinationBadge destination={payment.destination} financeModel={payment.finance_model} /></p>
+                  </div>
+                ) : null}
               </div>
             </div>
-          </div>
+          ) : null}
 
           <div className="rounded-[24px] border border-white/10 bg-slate-900/70 p-5">
             <p className="text-sm uppercase tracking-[0.35em] text-slate-500">Observação</p>

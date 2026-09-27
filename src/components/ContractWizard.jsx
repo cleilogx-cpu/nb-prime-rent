@@ -46,7 +46,6 @@ const initialTenant = {
 
 const initialLease = {
   vehicle_id: '',
-  finance_model: 'partners',
   start_date: new Date().toISOString().slice(0, 10),
   duration_months: 3,
   end_date: '',
@@ -109,7 +108,6 @@ export default function ContractWizard({ open, onClose, onCompleted, resumeContr
       setTenantId(resumeContract.tenant_id)
       setLease({
         vehicle_id: resumeContract.vehicle_id,
-        finance_model: resumeContract.finance_model || 'partners',
         start_date: resumeContract.start_date,
         duration_months: 'custom',
         end_date: resumeContract.end_date,
@@ -301,7 +299,6 @@ export default function ContractWizard({ open, onClose, onCompleted, resumeContr
 
     const payload = {
       vehicle_id: lease.vehicle_id,
-      finance_model: lease.finance_model,
       tenant,
       tenant_id: tenantId,
       start_date: lease.start_date,
@@ -568,7 +565,7 @@ export default function ContractWizard({ open, onClose, onCompleted, resumeContr
             <div className="space-y-6">
               <div>
                 <h3 className="text-xl font-semibold text-white">Dados da locação</h3>
-                <p className="mt-2 text-sm text-slate-400">Escolha o veículo, a distribuição do aluguel e os valores.</p>
+                <p className="mt-2 text-sm text-slate-400">Escolha o veículo e informe o prazo e os valores.</p>
               </div>
 
               <VehicleStepFields
@@ -578,20 +575,6 @@ export default function ContractWizard({ open, onClose, onCompleted, resumeContr
                 selectedVehicle={selectedVehicle}
                 error={leaseErrors.vehicle_id}
               />
-
-              <div className="space-y-3">
-                <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Distribuição do aluguel</p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className={`cursor-pointer rounded-2xl border p-4 text-sm ${lease.finance_model === 'partners' ? 'border-amber-300/40 bg-amber-300/10 text-amber-100' : 'border-white/10 bg-slate-900/60 text-slate-300'}`}>
-                    <input type="radio" name="wizard-finance-model" className="mr-2" checked={lease.finance_model === 'partners'} onChange={() => handleLeaseChange('finance_model', 'partners')} />
-                    Divisão entre sócios (Clei/Edson)
-                  </label>
-                  <label className={`cursor-pointer rounded-2xl border p-4 text-sm ${lease.finance_model === 'savings' ? 'border-amber-300/40 bg-amber-300/10 text-amber-100' : 'border-white/10 bg-slate-900/60 text-slate-300'}`}>
-                    <input type="radio" name="wizard-finance-model" className="mr-2" checked={lease.finance_model === 'savings'} onChange={() => handleLeaseChange('finance_model', 'savings')} />
-                    Formação de capital (fundo)
-                  </label>
-                </div>
-              </div>
 
               <LeaseTermsStepFields
                 form={lease}

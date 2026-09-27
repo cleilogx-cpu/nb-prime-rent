@@ -1,6 +1,6 @@
 import { FileText, ShieldCheck } from 'lucide-react'
 import { formatCurrency, formatDate } from '../lib/format.js'
-import { PERIODICITY_LABELS } from '../lib/constants.js'
+import { FINANCE_MODEL_LABELS, PERIODICITY_LABELS } from '../lib/constants.js'
 
 function getStatusStyle(status) {
   const normalized = String(status ?? '').toLowerCase()
@@ -9,11 +9,6 @@ function getStatusStyle(status) {
   if (normalized === 'encerrado') return 'border-slate-400/20 bg-slate-500/10 text-slate-300'
   if (normalized === 'cancelado') return 'border-rose-400/20 bg-rose-500/10 text-rose-300'
   return 'border-amber-300/20 bg-amber-300/10 text-amber-300'
-}
-
-const FINANCE_LABELS = {
-  partners: 'Sócios',
-  savings: 'Fundo',
 }
 
 export default function ContractCard({ contract, onOpenDetails }) {
@@ -41,7 +36,7 @@ export default function ContractCard({ contract, onOpenDetails }) {
         </span>
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+      <div className={`mt-5 grid gap-3 ${contract.finance_model ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
         <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-3 text-sm text-slate-300">
           <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Período</p>
           <p className="mt-1 text-white">{formatDate(contract.start_date)} — {formatDate(contract.end_date)}</p>
@@ -50,10 +45,12 @@ export default function ContractCard({ contract, onOpenDetails }) {
           <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Valor ({PERIODICITY_LABELS[contract.periodicity] || 'Semanal'})</p>
           <p className="mt-1 text-white">{formatCurrency(contract.payment_amount)}</p>
         </div>
-        <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-3 text-sm text-slate-300">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500 flex items-center gap-1"><ShieldCheck size={12} /> Distribuição</p>
-          <p className="mt-1 text-white">{FINANCE_LABELS[contract.finance_model] || contract.finance_model}</p>
-        </div>
+        {contract.finance_model ? (
+          <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-3 text-sm text-slate-300">
+            <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500 flex items-center gap-1"><ShieldCheck size={12} /> Distribuição</p>
+            <p className="mt-1 text-white">{FINANCE_MODEL_LABELS[contract.finance_model] || contract.finance_model}</p>
+          </div>
+        ) : null}
       </div>
     </article>
   )

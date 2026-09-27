@@ -68,13 +68,17 @@ export default function PaymentCard({ payment, onView, onCancel }) {
             <CreditCard size={16} className="text-amber-300" />
             <span>Forma: {payment.payment_method || 'Não informada'}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <CalendarDays size={16} className="text-amber-300" />
-            <span>Modelo: {metadata.financeModel === 'savings' ? 'Fundo do veículo' : 'Alternância entre sócios'}</span>
-          </div>
+          {payment.finance_model ? (
+            <div className="flex items-center gap-2">
+              <CalendarDays size={16} className="text-amber-300" />
+              <span>Modelo: {payment.finance_model === 'savings' ? 'Fundo do veículo' : 'Alternância entre sócios'}</span>
+            </div>
+          ) : null}
         </div>
         <div className="space-y-3 text-sm text-slate-300">
-          <p><span className="text-slate-500">Destino:</span> <PaymentDestinationBadge destination={payment.destination} financeModel={metadata.financeModel} /></p>
+          {payment.destination ? (
+            <p><span className="text-slate-500">Destino:</span> <PaymentDestinationBadge destination={payment.destination} financeModel={payment.finance_model} /></p>
+          ) : null}
           <p><span className="text-slate-500">Usuário:</span> {payment.created_by || 'Não informado'}</p>
           <p><span className="text-slate-500">Observação:</span> {metadata.note || payment.notes || 'Sem observação'}</p>
         </div>

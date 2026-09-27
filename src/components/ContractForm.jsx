@@ -9,7 +9,6 @@ import LeaseTermsStepFields from './LeaseTermsStepFields.jsx'
 
 const initialForm = {
   vehicle_id: '',
-  finance_model: 'partners',
   tenant: {
     full_name: '',
     cpf: '',
@@ -46,7 +45,6 @@ function formFromContract(contract) {
 
   return {
     vehicle_id: contract.vehicle_id,
-    finance_model: contract.finance_model || 'partners',
     tenant: {
       full_name: tenant.full_name || '',
       cpf: tenant.cpf || '',
@@ -164,7 +162,6 @@ export default function ContractForm({ open, onClose, onSubmit, loading, contrac
 
     onSubmit({
       vehicle_id: form.vehicle_id,
-      finance_model: form.finance_model,
       tenant: form.tenant,
       tenant_id: contract?.tenant_id,
       start_date: form.start_date,
@@ -199,20 +196,6 @@ export default function ContractForm({ open, onClose, onSubmit, loading, contrac
             selectedVehicle={selectedVehicle}
             error={errors.vehicle_id}
           />
-
-          <div className="space-y-3">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Distribuição do aluguel</p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className={`cursor-pointer rounded-2xl border p-4 text-sm ${form.finance_model === 'partners' ? 'border-amber-300/40 bg-amber-300/10 text-amber-100' : 'border-white/10 bg-slate-900/60 text-slate-300'}`}>
-                <input type="radio" name="finance_model" className="mr-2" checked={form.finance_model === 'partners'} onChange={() => handleChange('finance_model', 'partners')} />
-                Divisão entre sócios (Clei/Edson)
-              </label>
-              <label className={`cursor-pointer rounded-2xl border p-4 text-sm ${form.finance_model === 'savings' ? 'border-amber-300/40 bg-amber-300/10 text-amber-100' : 'border-white/10 bg-slate-900/60 text-slate-300'}`}>
-                <input type="radio" name="finance_model" className="mr-2" checked={form.finance_model === 'savings'} onChange={() => handleChange('finance_model', 'savings')} />
-                Formação de capital (fundo)
-              </label>
-            </div>
-          </div>
 
           <div className="space-y-3">
             <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Dados do locatário</p>

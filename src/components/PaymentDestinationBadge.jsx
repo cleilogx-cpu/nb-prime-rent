@@ -1,4 +1,8 @@
 export default function PaymentDestinationBadge({ destination, financeModel }) {
+  if (!destination && !financeModel) {
+    return null
+  }
+
   const normalized = String(destination || '').trim()
   const label = financeModel === 'savings' || normalized === 'Fundo do veículo' ? 'Fundo do veículo' : normalized || 'Alternância entre sócios'
 

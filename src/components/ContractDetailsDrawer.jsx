@@ -3,10 +3,8 @@ import { Download, FileText, PenLine, Pencil, RotateCcw, X, XCircle } from 'luci
 import { downloadContractDocx } from '../lib/contractDocx.js'
 import { downloadContractPdf } from '../lib/contractPdf.js'
 import { formatCurrency, formatDate, formatTenantAddress } from '../lib/format.js'
-import { PERIODICITY_LABELS } from '../lib/constants.js'
+import { FINANCE_MODEL_LABELS, PERIODICITY_LABELS } from '../lib/constants.js'
 import DocumentDossie from './DocumentDossie.jsx'
-
-const FINANCE_LABELS = { partners: 'Sócios', savings: 'Fundo' }
 
 export default function ContractDetailsDrawer({ open, contract, onClose, onOpenSign, onCancel, onEdit, onReactivate, reactivating }) {
   const [downloading, setDownloading] = useState(false)
@@ -54,10 +52,12 @@ export default function ContractDetailsDrawer({ open, contract, onClose, onOpenS
             <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Status</p>
             <p className="mt-1 text-white">{contract.status}</p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-4 text-sm text-slate-300">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Distribuição</p>
-            <p className="mt-1 text-white">{FINANCE_LABELS[contract.finance_model] || contract.finance_model}</p>
-          </div>
+          {contract.finance_model ? (
+            <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-4 text-sm text-slate-300">
+              <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Distribuição</p>
+              <p className="mt-1 text-white">{FINANCE_MODEL_LABELS[contract.finance_model] || contract.finance_model}</p>
+            </div>
+          ) : null}
           <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-4 text-sm text-slate-300">
             <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Período</p>
             <p className="mt-1 text-white">{formatDate(contract.start_date)} — {formatDate(contract.end_date)} ({contract.weeks} semanas)</p>

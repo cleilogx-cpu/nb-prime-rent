@@ -3,6 +3,15 @@ import { Navigate } from 'react-router-dom'
 import { ArrowRight, Lock, Mail, ShieldCheck } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient.js'
 import { useAuth } from '../hooks/useAuth.jsx'
+import TurnstileWidget from '../components/TurnstileWidget.jsx'
+import { resetTurnstile } from '../lib/turnstile.js'
+
+// Sem prefixo VITE_ a variável nem chegaria ao navegador (mesma regra do
+// .env.example) -- mas aqui é o contrário: a site key do Turnstile É
+// pública por design (o Cloudflare já espera que ela apareça no HTML/JS
+// de qualquer site que a usa), só a secret key (que nunca entra neste
+// projeto, fica só no painel do Supabase) precisa ficar escondida.
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || ''
 
 export default function Login() {
   const { session, loading } = useAuth()
@@ -10,6 +19,7 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
 
   if (loading) {
     return (
@@ -31,12 +41,30 @@ export default function Login() {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+
+    // Trava extra no frontend (o botão já fica desabilitado sem token, mas
+    // isso não é a proteção de verdade -- ver comentário abaixo em
+    // signInWithPassword). Sem site key configurada (Turnstile ainda não
+    // ligado), captchaToken nunca é exigido -- login continua funcionando
+    // normal, sem travar ninguém antes do Cloudflare estar configurado.
+    if (TURNSTILE_SITE_KEY && !captchaToken) {
+      setErrorMessage('Confirme que você não é um robô antes de entrar.')
+      return
+    }
+
     setSubmitting(true)
     setErrorMessage('')
 
+    // A verificação de verdade do captcha acontece no servidor do Supabase
+    // (GoTrue), não aqui -- se "Enable Captcha protection" estiver ligado
+    // no painel do Supabase, um captchaToken ausente/inválido/expirado/já
+    // usado é rejeitado ANTES de checar a senha, mesmo que alguém manipule
+    // o frontend pra pular a validação visual (seção 3 do pedido: não dá
+    // pra burlar só mexendo no navegador, quem valida é o servidor).
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
+      options: captchaToken ? { captchaToken } : undefined,
     })
 
     setSubmitting(false)
@@ -48,7 +76,17 @@ export default function Login() {
       // informação interna (auditoria de segurança, seção 5/9 do pedido:
       // "mensagens de erro expondo informações internas").
       console.error('Erro do Supabase:', error)
-      setErrorMessage('E-mail ou senha inválidos. Confira os dados e tente novamente.')
+      setErrorMessage(
+        error.message?.toLowerCase().includes('captcha')
+          ? 'Não foi possível confirmar que você não é um robô. Tente novamente.'
+          : 'E-mail ou senha inválidos. Confira os dados e tente novamente.',
+      )
+      // Token do Turnstile é de uso único -- se o login falhou (senha
+      // errada ou captcha inválido/expirado), o token já foi consumido ou
+      // rejeitado; pede um novo pra próxima tentativa em vez de deixar o
+      // botão preso com um token que não serve mais.
+      setCaptchaToken('')
+      resetTurnstile()
       return
     }
   }
@@ -99,6 +137,23 @@ export default function Login() {
             </div>
           </label>
 
+          {TURNSTILE_SITE_KEY ? (
+            <div className="flex justify-center">
+              <TurnstileWidget
+                siteKey={TURNSTILE_SITE_KEY}
+                onToken={(token) => {
+                  setCaptchaToken(token)
+                  setErrorMessage('')
+                }}
+                onExpire={() => setCaptchaToken('')}
+                onError={() => {
+                  setCaptchaToken('')
+                  setErrorMessage('Não foi possível carregar a verificação de segurança. Recarregue a página.')
+                }}
+              />
+            </div>
+          ) : null}
+
           {errorMessage && (
             <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
               {errorMessage}
@@ -107,7 +162,7 @@ export default function Login() {
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || (Boolean(TURNSTILE_SITE_KEY) && !captchaToken)}
             className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#D4AF37] px-5 py-3 text-sm font-semibold text-[#0b0b0b] transition hover:bg-[#e5c55c] disabled:cursor-not-allowed disabled:opacity-70"
           >
             {submitting ? 'Entrando...' : 'Entrar'}

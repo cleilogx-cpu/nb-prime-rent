@@ -16,7 +16,7 @@ export const LOCADOR = {
 // assinatura escaneada de verdade, troca por uma data URL de imagem e usa
 // o mesmo mecanismo já pronto pra assinatura do locatário (locadorSignatureImage
 // em vez de locadorSignatureText, no bloco 'signature' logo abaixo).
-export const LOCADOR_SIGNATURE_TEXT = 'Edson teste'
+export const LOCADOR_SIGNATURE_TEXT = ''
 
 // Dados bancários fixos usados em todos os contratos.
 const PIX = {

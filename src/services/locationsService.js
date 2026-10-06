@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient.js'
 import { markDepositPendingRefund } from './depositsService.js'
 import { CHARGE_STATUS } from '../lib/constants.js'
+import { CHECKLIST_ITEMS, isChecklistComplete } from '../lib/rentalChecklist.js'
 
 const TABLE = 'rentals'
 const RENTAL_SELECT = '*, tenants(*), vehicles(*), contracts(contract_number, finance_model)'
@@ -33,6 +34,73 @@ export async function listActiveLocations(filters = {}) {
     : data
 
   return { data: filtered, error: null }
+}
+
+/**
+ * Locações ativas com pelo menos uma pendência no checklist operacional --
+ * alimenta o card "Pendências" do Dashboard. Sempre reflete o estado atual
+ * do checklist (não existe lista de pendências separada): marcou os três,
+ * sai; desmarcou um, volta. Encerrada/cancelada nunca entra aqui.
+ */
+export async function listRentalsWithPendingChecklist() {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('*, tenants(full_name), vehicles(plate, model)')
+    .eq('status', 'Ativa')
+    .order('start_date', { ascending: true })
+
+  if (error) {
+    return { data: [], error }
+  }
+
+  return { data: (data ?? []).filter((rental) => !isChecklistComplete(rental)), error: null }
+}
+
+/**
+ * Marca/desmarca um item do checklist da locação (só locação Ativa --
+ * encerrada guarda o estado final). Ao marcar grava data/hora e e-mail de
+ * quem marcou; ao desmarcar limpa os dois (volta a ser pendência). Cada
+ * alteração entra em audit_logs, mesmo padrão dos outros serviços. Não
+ * mexe em contrato, financeiro nem status da locação/veículo.
+ */
+export async function updateChecklistItem(rentalId, key, done) {
+  if (!CHECKLIST_ITEMS.some((item) => item.key === key)) {
+    return { data: null, error: { message: 'Item de checklist inválido.' } }
+  }
+
+  const { data: userData } = await supabase.auth.getUser()
+  const user = userData?.user ?? null
+
+  const { data: before } = await supabase.from(TABLE).select('*').eq('id', rentalId).maybeSingle()
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({
+      [key]: Boolean(done),
+      [`${key}_at`]: done ? new Date().toISOString() : null,
+      [`${key}_by`]: done ? user?.email ?? user?.id ?? null : null,
+    })
+    .eq('id', rentalId)
+    .eq('status', 'Ativa')
+    .select(RENTAL_SELECT)
+    .single()
+
+  if (!error && data) {
+    const { error: auditError } = await supabase.from('audit_logs').insert({
+      action: 'UPDATE',
+      entity: TABLE,
+      entity_id: rentalId,
+      user_id: user?.id ?? null,
+      before_data: before ? { [key]: before[key], [`${key}_at`]: before[`${key}_at`] } : null,
+      after_data: { [key]: data[key], [`${key}_at`]: data[`${key}_at`] },
+      justification: `Checklist da locação: ${key} ${done ? 'concluído' : 'voltou a pendente'}`,
+    })
+    if (auditError) {
+      console.warn('Falha ao registrar auditoria do checklist:', auditError.message)
+    }
+  }
+
+  return { data, error }
 }
 
 export async function listLocationHistory() {

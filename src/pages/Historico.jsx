@@ -7,6 +7,7 @@ import { listDeposits } from '../services/depositsService.js'
 import { formatCurrency, formatDate, computeLocationFinancials } from '../services/locationLogic.js'
 import { FINANCE_MODEL_LABELS, PERIODICITY_LABELS } from '../lib/constants.js'
 import LoadingScreen from '../components/LoadingScreen.jsx'
+import RentalChecklist from '../components/RentalChecklist.jsx'
 
 function statusBadgeStyle(status) {
   if (status === 'Cancelada') {
@@ -100,6 +101,10 @@ function HistoryCard({ location, payments, expenses, deposits }) {
           <p className="text-xs uppercase tracking-[0.3em] text-sky-300/80">Caução recebida</p>
           <p className="mt-2 text-lg font-semibold text-sky-100">{formatCurrency(depositReceived)}</p>
         </div>
+      </div>
+
+      <div className="mt-6">
+        <RentalChecklist rental={location} readOnly />
       </div>
 
       {location.closing_notes ? (

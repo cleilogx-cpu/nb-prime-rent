@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import RentalChecklist from '../components/RentalChecklist.jsx'
+import { getPendingChecklistItems } from '../lib/rentalChecklist.js'
 import { AlertTriangle, CarFront, Search } from 'lucide-react'
 import { endLocation, listActiveLocations } from '../services/locationsService.js'
 import { listDeposits } from '../services/depositsService.js'
@@ -22,9 +25,16 @@ function LocationCard({ location, onView, onEnd }) {
           <p className="text-sm uppercase tracking-[0.35em] text-amber-300/80">{vehicle?.plate || 'Sem placa'}</p>
           <h3 className="mt-3 text-xl font-semibold text-white">{vehicle?.model || 'Modelo não informado'}</h3>
         </div>
-        <span className="inline-flex w-fit rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-emerald-200">
-          Ativa
-        </span>
+        <div className="flex flex-col items-end gap-2">
+          <span className="inline-flex w-fit rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-emerald-200">
+            Ativa
+          </span>
+          {getPendingChecklistItems(location).length > 0 ? (
+            <span className="inline-flex w-fit rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-semibold text-amber-200">
+              ⚠ {getPendingChecklistItems(location).length} pendência(s)
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -74,6 +84,8 @@ export default function Locations() {
   const [endTarget, setEndTarget] = useState(null)
   const [endLoading, setEndLoading] = useState(false)
   const [toast, setToast] = useState({ message: '', type: 'success' })
+  const [highlightChecklist, setHighlightChecklist] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const loadData = async () => {
     setLoading(true)
@@ -120,6 +132,27 @@ export default function Locations() {
     setSelectedLocation(location)
     setViewOpen(true)
   }
+
+  // Vindo do Dashboard (Pendências): /locations?open=<id> abre direto os
+  // detalhes dessa locação, rola até o Checklist e destaca a seção por
+  // alguns segundos. O parâmetro é limpo depois pra não reabrir ao
+  // recarregar/voltar.
+  const openId = searchParams.get('open')
+  useEffect(() => {
+    if (!openId || loading) {
+      return
+    }
+
+    const target = locations.find((item) => item.id === openId)
+    if (target) {
+      openView(target)
+      setHighlightChecklist(true)
+      setTimeout(() => document.getElementById('checklist-locacao')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 150)
+      setTimeout(() => setHighlightChecklist(false), 3500)
+    }
+    setSearchParams({}, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openId, loading, locations])
 
   const handleEndConfirm = async (payload) => {
     if (!endTarget) {
@@ -268,6 +301,15 @@ export default function Locations() {
                   </div>
                 </div>
               </div>
+
+              <RentalChecklist
+                rental={selectedLocation}
+                highlight={highlightChecklist}
+                onUpdated={(updated) => {
+                  setSelectedLocation(updated)
+                  setLocations((current) => current.map((item) => (item.id === updated.id ? updated : item)))
+                }}
+              />
 
               {(() => {
                 const chargesForContract = overdueCharges.filter(

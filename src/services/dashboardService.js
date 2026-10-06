@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabaseClient.js'
 import { summarizeVehicleStatuses } from '../lib/vehicleStatus.js'
 import { computePaymentTotals } from '../lib/paymentAggregation.js'
 import { listOverdueCharges } from './chargesService.js'
+import { listRentalsWithPendingChecklist } from './locationsService.js'
 
 /**
  * Visão Geral: status da frota + próximos vencimentos/atrasados
@@ -28,6 +29,13 @@ export async function fetchOverviewData() {
     return { data: null, error: overdueError }
   }
 
+  // Falha aqui não derruba o Dashboard inteiro -- Pendências é um lembrete
+  // operacional, não pode esconder frota/pagamentos atrasados se der erro.
+  const { data: pendingChecklists, error: pendingError } = await listRentalsWithPendingChecklist()
+  if (pendingError) {
+    console.warn('Falha ao carregar as pendências do checklist:', pendingError.message)
+  }
+
   const { rentedCount, availableCount, maintenanceCount } = summarizeVehicleStatuses(vehicles)
 
   return {
@@ -37,6 +45,7 @@ export async function fetchOverviewData() {
       availableCount,
       maintenanceCount,
       overdueCharges: overdueCharges ?? [],
+      pendingChecklists: pendingChecklists ?? [],
     },
     error: null,
   }

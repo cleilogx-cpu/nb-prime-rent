@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ShieldCheck, Truck } from 'lucide-react'
+import { AlertTriangle, ClipboardCheck, ShieldCheck, Truck } from 'lucide-react'
+import { getPendingChecklistItems } from '../lib/rentalChecklist.js'
 import { fetchOverviewData, fetchFinancialRawData } from '../services/dashboardService.js'
 import { listVehicles } from '../services/vehiclesService.js'
 import { computePaymentTotals, monthRange, yearRange, MONTH_LABELS } from '../lib/paymentAggregation.js'
@@ -49,7 +50,26 @@ function OverdueChargeRow({ charge }) {
   )
 }
 
-const PERIOD_MODE = { MONTH: 'month', YEAR: 'year', CUSTOM: 'custom' }
+// Só mostra o que falta fazer (concluído fica só no detalhe da locação).
+function PendingChecklistRow({ rental }) {
+  return (
+    <Link
+      to={`/locations?open=${rental.id}`}
+      className="block min-h-14 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm transition hover:border-amber-300/30"
+    >
+      <p className="font-medium text-white">
+        {rental.vehicles?.plate || 'Veículo'} — {rental.tenants?.full_name || 'Locatário não informado'}
+      </p>
+      <ul className="mt-2 space-y-1 text-xs text-amber-300/90">
+        {getPendingChecklistItems(rental).map((item) => (
+          <li key={item.key}>⚠ {item.pendingLabel}</li>
+        ))}
+      </ul>
+    </Link>
+  )
+}
+
+const PERIOD_MODE ={ MONTH: 'month', YEAR: 'year', CUSTOM: 'custom' }
 
 const now = new Date()
 
@@ -187,6 +207,20 @@ export default function Dashboard() {
             <p className="text-sm text-slate-500">Nenhum pagamento atrasado. 🎉</p>
           ) : (
             overview.overdueCharges.map((charge) => <OverdueChargeRow key={charge.id} charge={charge} />)
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-[32px] border border-white/10 bg-slate-900/80 p-6 shadow-xl shadow-black/30 sm:p-8">
+        <div className="flex items-center gap-3">
+          <ClipboardCheck size={18} className="text-amber-300" />
+          <h3 className="text-lg font-semibold text-white">Pendências — {overview.pendingChecklists.length}</h3>
+        </div>
+        <div className="mt-5 space-y-3">
+          {overview.pendingChecklists.length === 0 ? (
+            <p className="text-sm text-slate-500">Nenhuma pendência operacional nas locações ativas.</p>
+          ) : (
+            overview.pendingChecklists.map((rental) => <PendingChecklistRow key={rental.id} rental={rental} />)
           )}
         </div>
       </div>

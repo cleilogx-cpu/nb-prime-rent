@@ -87,6 +87,31 @@ export default function Locations() {
   const [highlightChecklist, setHighlightChecklist] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
 
+  const openView = (location) => {
+    setSelectedLocation(location)
+    setViewOpen(true)
+  }
+
+  // Vindo do Dashboard (Pendências): /locations?open=<id> abre direto os
+  // detalhes dessa locação, rola até o Checklist e destaca a seção por
+  // alguns segundos. Chamado no fim do loadData (depois dos dados
+  // chegarem); o parâmetro é limpo pra não reabrir ao recarregar/voltar.
+  const openFromQuery = (list) => {
+    const openId = searchParams.get('open')
+    if (!openId) {
+      return
+    }
+
+    const target = list.find((item) => item.id === openId)
+    if (target) {
+      openView(target)
+      setHighlightChecklist(true)
+      setTimeout(() => document.getElementById('checklist-locacao')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 150)
+      setTimeout(() => setHighlightChecklist(false), 3500)
+    }
+    setSearchParams({}, { replace: true })
+  }
+
   const loadData = async () => {
     setLoading(true)
     const [{ data, error: fetchError }, { data: depositsData }, { data: overdueData }] = await Promise.all([
@@ -105,6 +130,7 @@ export default function Locations() {
     setDeposits(depositsData ?? [])
     setOverdueCharges(overdueData ?? [])
     setLoading(false)
+    openFromQuery(data ?? [])
   }
 
   useEffect(() => {
@@ -128,31 +154,6 @@ export default function Locations() {
     }
   }, [viewOpen])
 
-  const openView = (location) => {
-    setSelectedLocation(location)
-    setViewOpen(true)
-  }
-
-  // Vindo do Dashboard (Pendências): /locations?open=<id> abre direto os
-  // detalhes dessa locação, rola até o Checklist e destaca a seção por
-  // alguns segundos. O parâmetro é limpo depois pra não reabrir ao
-  // recarregar/voltar.
-  const openId = searchParams.get('open')
-  useEffect(() => {
-    if (!openId || loading) {
-      return
-    }
-
-    const target = locations.find((item) => item.id === openId)
-    if (target) {
-      openView(target)
-      setHighlightChecklist(true)
-      setTimeout(() => document.getElementById('checklist-locacao')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 150)
-      setTimeout(() => setHighlightChecklist(false), 3500)
-    }
-    setSearchParams({}, { replace: true })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openId, loading, locations])
 
   const handleEndConfirm = async (payload) => {
     if (!endTarget) {

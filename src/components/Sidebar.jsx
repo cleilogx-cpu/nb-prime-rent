@@ -1,15 +1,19 @@
 import { NavLink } from 'react-router-dom'
+import { useCompany } from '../hooks/useCompany.js'
 import {
   Clock3,
   DollarSign,
   FileText,
   Home,
+  Settings,
   ShieldCheck,
   Truck,
   Wrench,
   X,
   BadgeCheck,
 } from 'lucide-react'
+
+const adminItems = [{ label: 'Configurações', to: '/configuracoes', icon: Settings }]
 
 const menuItems = [
   { label: 'Dashboard', to: '/', icon: Home },
@@ -24,6 +28,9 @@ const menuItems = [
 ]
 
 export default function Sidebar({ open, setOpen }) {
+  const { isAdmin, displayName } = useCompany()
+  const items = isAdmin ? [...menuItems, ...adminItems] : menuItems
+
   return (
     <aside
       className={`fixed inset-y-0 left-0 z-30 flex w-[290px] flex-col border-r border-white/10 bg-[#080808] px-4 py-5 shadow-[12px_0_40px_rgba(0,0,0,0.25)] transition duration-300 md:static md:translate-x-0 ${
@@ -47,14 +54,12 @@ export default function Sidebar({ open, setOpen }) {
 
       <div className="mb-6 rounded-[24px] border border-[#D4AF37]/15 bg-[#111111] p-4">
         <p className="text-[10px] uppercase tracking-[0.35em] text-[#D4AF37]">NB Prime Rent</p>
-        <h2 className="mt-3 text-xl font-semibold text-white">Gestão de Locação</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-400">
-          Capital inteligente. Crescimento consistente.
-        </p>
+        <h2 className="mt-3 break-words text-xl font-semibold text-white">{displayName || 'Gestão de Locação'}</h2>
+        {displayName ? <p className="mt-2 text-sm leading-6 text-slate-400">Gestão de Locação</p> : null}
       </div>
 
       <nav className="flex-1 space-y-2 overflow-y-auto pr-1">
-        {menuItems.map((item) => {
+        {items.map((item) => {
           const Icon = item.icon
           return (
             <NavLink

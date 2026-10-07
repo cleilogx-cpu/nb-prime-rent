@@ -1,0 +1,329 @@
+{
+ "_comment": "Carga inicial ESPECÍFICA da instalação NB Prime (dados de quem usa o sistema hoje). Não faz parte do código do produto: é só dado, carregado uma vez no banco.",
+ "company_settings": {
+  "resp_name": "Edson Amorim Barroso",
+  "resp_cpf": "928.156.502-15",
+  "resp_address": "Rua João Paulo I, 2400, Novo Horizonte, na Cidade de Porto Velho-RO"
+ },
+ "template_content": {
+  "header": {
+   "kicker": "LOCAÇÃO DE VEÍCULOS",
+   "title": "CONTRATO DE LOCAÇÃO DE VEÍCULO PARA\nTRANSPORTE POR APLICATIVO",
+   "subtitle": "Instrumento Particular de Locação de Veículo [MARCA/MODELO]",
+   "date": "[DATA DE INÍCIO]",
+   "heading": "CONTRATO DE LOCAÇÃO DE VEÍCULO"
+  },
+  "blocks": [
+   {
+    "id": "blk-001",
+    "type": "heading",
+    "text": "Das partes"
+   },
+   {
+    "id": "blk-002",
+    "type": "text",
+    "text": "LOCADOR: [NOME DO LOCADOR], CPF nº [CPF DO LOCADOR], Endereço [ENDEREÇO DO LOCADOR]."
+   },
+   {
+    "id": "blk-003",
+    "type": "text",
+    "text": "LOCATÁRIO: [NOME DO LOCATÁRIO], CPF nº [CPF DO LOCATÁRIO], Endereço [ENDEREÇO DO LOCATÁRIO]."
+   },
+   {
+    "id": "blk-004",
+    "type": "heading",
+    "text": "Do objeto"
+   },
+   {
+    "id": "blk-005",
+    "type": "clause",
+    "text": "O objeto do presente contrato é a locação do veículo de propriedade do LOCADOR, abaixo descrito, para uso exclusivo do LOCATÁRIO na atividade de transporte remunerado de passageiros via plataformas digitais (Uber, 99 e similares):"
+   },
+   {
+    "id": "blk-006",
+    "type": "item",
+    "text": "Marca/Modelo: [MARCA/MODELO]."
+   },
+   {
+    "id": "blk-007",
+    "type": "item",
+    "text": "Ano/Modelo: [ANO]"
+   },
+   {
+    "id": "blk-008",
+    "type": "item",
+    "text": "Placa: [PLACA]"
+   },
+   {
+    "id": "blk-009",
+    "type": "item",
+    "text": "Chassi: [CHASSI]"
+   },
+   {
+    "id": "blk-010",
+    "type": "item",
+    "text": "Cor: [COR]"
+   },
+   {
+    "id": "blk-011",
+    "type": "heading",
+    "text": "Do prazo e vigência"
+   },
+   {
+    "id": "blk-012",
+    "type": "clause",
+    "text": "O presente contrato terá vigência de [PRAZO], contando como primeiro dia [DATA DE INÍCIO] e último dia [DATA DE TÉRMINO], podendo ser renovado automaticamente por iguais períodos, desde que não haja manifestação em contrário de qualquer das partes."
+   },
+   {
+    "id": "blk-013",
+    "type": "heading",
+    "text": "Dos valores e forma de pagamento"
+   },
+   {
+    "id": "blk-014",
+    "type": "clause",
+    "text": "O valor da locação é de [VALOR DIÁRIO] por dia, totalizando [VALOR DA LOCAÇÃO] a ser pago com periodicidade [PERIODICIDADE], conforme cronograma abaixo:"
+   },
+   {
+    "id": "blk-015",
+    "type": "text",
+    "text": "[CRONOGRAMA DE PAGAMENTOS]"
+   },
+   {
+    "id": "blk-016",
+    "type": "clause",
+    "text": "O pagamento deverá ser realizado [FREQUÊNCIA DE PAGAMENTO], conforme cronograma, via PIX na chave clei1982@gmail.com, Ag 0001, Conta 693768-2, Nu Pagamento S.A, em nome de Cleideilson Nogueira Santos."
+   },
+   {
+    "id": "blk-017",
+    "type": "clause",
+    "text": "O atraso no pagamento implicará em multa de [MULTA POR ATRASO] sobre o valor devido, acrescido de juros de mora de [JUROS DE MORA] ao mês e poderá ensejar a rescisão imediata do contrato com o bloqueio remoto do veículo assim que estiver parado."
+   },
+   {
+    "id": "blk-018",
+    "type": "heading",
+    "text": "Do depósito caução"
+   },
+   {
+    "id": "blk-019",
+    "type": "clause",
+    "text": "No ato da assinatura, o LOCATÁRIO depositará a quantia de [CAUÇÃO] a título de caução, para garantia de eventuais danos ao veículo, multas de trânsito ou inadimplência contratual, conforme combinado entre as partes."
+   },
+   {
+    "id": "blk-020",
+    "type": "clause",
+    "text": "O valor da caução será restituído ao LOCATÁRIO em até 5 (cinco) dias úteis após a devolução do veículo, descontados eventuais valores devidos ou danos constatados na vistoria final."
+   },
+   {
+    "id": "blk-021",
+    "type": "heading",
+    "text": "Das responsabilidades"
+   },
+   {
+    "id": "blk-022",
+    "type": "clause",
+    "text": "Compete ao LOCATÁRIO:"
+   },
+   {
+    "id": "blk-023",
+    "type": "item",
+    "text": "Arcar com os custos de higienização e limpeza do veículo;"
+   },
+   {
+    "id": "blk-024",
+    "type": "item",
+    "text": "Realizar a manutenção preventiva básica, incluindo a calibração e substituição de pneus e avarias decorrentes da má condução;"
+   },
+   {
+    "id": "blk-025",
+    "type": "item",
+    "text": "Efetuar o pagamento integral de todas as multas de trânsito ocorridas durante o período de posse do veículo;"
+   },
+   {
+    "id": "blk-026",
+    "type": "item",
+    "text": "Zelar pela integridade da bateria e componentes elétricos, seguindo as orientações do fabricante, quando aplicável;"
+   },
+   {
+    "id": "blk-027",
+    "type": "item",
+    "text": "Possuir garagem com barreira física e segurança para guardar o veículo nos momentos de descanso ou não uso."
+   },
+   {
+    "id": "blk-028",
+    "type": "clause",
+    "text": "Compete ao LOCADOR:"
+   },
+   {
+    "id": "blk-029",
+    "type": "item",
+    "text": "Arcar com a manutenção mecânica pesada e revisões periódicas de fábrica;"
+   },
+   {
+    "id": "blk-030",
+    "type": "item",
+    "text": "Manter o seguro total do veículo ativo;"
+   },
+   {
+    "id": "blk-031",
+    "type": "item",
+    "text": "Arcar com os custos de IPVA, Licenciamento e DPVAT;"
+   },
+   {
+    "id": "blk-032",
+    "type": "item",
+    "text": "Disponibilizar o veículo em perfeitas condições de uso e segurança."
+   },
+   {
+    "id": "blk-033",
+    "type": "heading",
+    "text": "Da franquia do seguro e responsabilidade em sinistro"
+   },
+   {
+    "id": "blk-034",
+    "type": "clause",
+    "text": "Em caso de sinistro (colisão, roubo, furto, incêndio ou danos a terceiros) envolvendo o veículo locado, o LOCATÁRIO obriga-se a arcar integralmente com o valor de R$ 8.845,00 referente à franquia do seguro, conforme estipulado na apólice vigente, independentemente de culpa pela ocorrência do evento."
+   },
+   {
+    "id": "blk-035",
+    "type": "clause",
+    "text": "O valor da franquia deverá ser pago pelo LOCATÁRIO no prazo máximo de 48 (quarenta e oito) horas contadas da comunicação do sinistro, sob pena de incidência de multa de 10% e juros de mora de 1% ao mês."
+   },
+   {
+    "id": "blk-036",
+    "type": "clause",
+    "text": "Caso a seguradora se recuse a cobrir o sinistro por qualquer motivo atribuível ao LOCATÁRIO (ex.: uso em desacordo com o contrato, direção sob efeito de álcool, não comunicação em até 24h), todos os custos de reparo do veículo correrão por conta exclusiva do LOCATÁRIO."
+   },
+   {
+    "id": "blk-037",
+    "type": "clause",
+    "text": "Nos períodos em que o veículo estiver indisponível para locação em decorrência de sinistro consertado ou em conserto, o LOCATÁRIO permanecerá responsável pelo pagamento das diárias conforme cláusula específica de carro reserva."
+   },
+   {
+    "id": "blk-038",
+    "type": "heading",
+    "text": "Do carro reserva em caso de indisponibilidade do veículo"
+   },
+   {
+    "id": "blk-039",
+    "type": "clause",
+    "text": "Nas hipóteses em que o veículo objeto deste contrato ficar indisponível para uso por período superior a 3 (três) dias consecutivos em razão de: colisão ou sinistro coberto pelo seguro, manutenção mecânica corretiva de responsabilidade do LOCADOR, revisão periódica obrigatória ou qualquer outro motivo que não seja causado exclusivamente por dolo ou culpa do locatário, o LOCADOR disponibilizará ao LOCATÁRIO um veículo reserva de categoria similar, no prazo máximo de 48 (quarenta e oito) horas contadas da comunicação formal da indisponibilidade."
+   },
+   {
+    "id": "blk-040",
+    "type": "clause",
+    "text": "O veículo reserva será disponibilizado pelo prazo máximo de 15 (quinze) dias corridos, salvo acordo diverso entre as partes."
+   },
+   {
+    "id": "blk-041",
+    "type": "clause",
+    "text": "O LOCATÁRIO arcará com os custos de combustível/recarga do veículo reserva, sendo o valor da diária da locação mantido nos mesmos termos deste contrato durante o período de uso do carro reserva, salvo acordo entre as partes."
+   },
+   {
+    "id": "blk-042",
+    "type": "clause",
+    "text": "Fica excluída a obrigação do LOCADOR de fornecer carro reserva nas seguintes hipóteses: indisponibilidade decorrente de ato doloso ou culposo grave do LOCATÁRIO (embriaguez ao volante, direção sem CNH, participação em racha etc.), apreensão do veículo por autoridade pública por ato imputável ao LOCATÁRIO e inadimplência do LOCATÁRIO no momento do sinistro."
+   },
+   {
+    "id": "blk-043",
+    "type": "clause",
+    "text": "Durante o período de indisponibilidade do veículo, o valor do aluguel permanece devido pelo LOCATÁRIO, substituindo-se a obrigação de entrega do veículo original pelo fornecimento do carro reserva, salvo nas hipóteses de exclusão previstas na cláusula 17ª, hipótese em que o LOCATÁRIO arcará com as diárias normalmente mesmo sem o uso de qualquer veículo."
+   },
+   {
+    "id": "blk-044",
+    "type": "heading",
+    "text": "Do prazo para reparação de pequenas avarias"
+   },
+   {
+    "id": "blk-045",
+    "type": "clause",
+    "text": "Consideram-se pequenas avarias para os fins desta cláusula: arranhões na pintura que não atinjam a chapa metálica, pequenos amassados sem dano estrutural, danos estéticos em retrovisores, para-choques ou lanternas que não comprometam a funcionalidade."
+   },
+   {
+    "id": "blk-046",
+    "type": "clause",
+    "text": "Constatada qualquer pequena avaria no veículo, o LOCATÁRIO obriga-se a realizar o reparo por conta própria no prazo máximo de 15 (quinze) dias corridos, contados da data da notificação pelo LOCADOR ou da data do evento, o que ocorrer primeiro, considerando como comunicação qualquer mensagem via aplicativos de whatsapp ou similar."
+   },
+   {
+    "id": "blk-047",
+    "type": "clause",
+    "text": "O reparo deverá ser realizado em oficina de livre escolha do LOCATÁRIO, desde que técnica e comercialmente habilitada, e o serviço deverá ser compatível com os padrões estéticos e de qualidade do veículo."
+   },
+   {
+    "id": "blk-048",
+    "type": "clause",
+    "text": "Findo o prazo sem a devida reparação, o LOCADOR poderá realizar o serviço diretamente e cobrar do LOCATÁRIO o valor integral do reparo, acrescido de multa de 20% sobre o valor do serviço e juros de mora de 1% ao mês."
+   },
+   {
+    "id": "blk-049",
+    "type": "clause",
+    "text": "O descumprimento reiterado do prazo de reparação (2 ou mais ocorrências) constitui infração contratual grave e autoriza a rescisão imediata do contrato pelo LOCADOR, nos termos da Cláusula 28ª."
+   },
+   {
+    "id": "blk-050",
+    "type": "heading",
+    "text": "Regras de uso e restrições"
+   },
+   {
+    "id": "blk-051",
+    "type": "clause",
+    "text": "O veículo é de uso exclusivo do LOCATÁRIO devidamente identificado neste contrato, sendo expressamente PROIBIDA A SUBLOCAÇÃO ou o empréstimo do veículo a terceiros, sob pena de rescisão imediata e perda da caução."
+   },
+   {
+    "id": "blk-052",
+    "type": "clause",
+    "text": "É terminantemente proibido fumar no interior do veículo. O descumprimento acarretará multa correspondente a uma taxa de higienização profunda de R$ 500,00."
+   },
+   {
+    "id": "blk-053",
+    "type": "clause",
+    "text": "As vistorias no veículo serão realizadas semanalmente, em dia, horário e local a serem alinhados entre as partes com pelo menos 48 (quarenta e oito) horas de antecedência. De preferência no dia do pagamento semanal."
+   },
+   {
+    "id": "blk-054",
+    "type": "clause",
+    "text": "O LOCATÁRIO compromete-se a não permitir descarga recorrente abaixo de 10% da bateria, bem como utilizar carregadores compatíveis com as especificações do fabricante."
+   },
+   {
+    "id": "blk-055",
+    "type": "heading",
+    "text": "Da rescisão"
+   },
+   {
+    "id": "blk-056",
+    "type": "clause",
+    "text": "Qualquer das partes poderá rescindir o presente contrato mediante aviso prévio por escrito (via WhatsApp ou e-mail) com antecedência mínima de 7 (sete) dias."
+   },
+   {
+    "id": "blk-057",
+    "type": "clause",
+    "text": "A rescisão imediata ocorrerá em caso de: (a) inadimplência igual ou superior a 48 horas; (b) uso indevido ou negligente do veículo; (c) apreensão do veículo por autoridades em decorrência de atos do LOCATÁRIO; (d) descumprimento de qualquer das cláusulas deste contrato; (e) atos que atentem contra a fé pública dos contratos e atos normativos e a moralidade pública."
+   },
+   {
+    "id": "blk-058",
+    "type": "clause",
+    "text": "Em fatos que levarem à rescisão do contrato, o LOCATÁRIO devolverá o veículo imediatamente, sob pena de responder civil e penalmente pelos atos praticados, podendo o LOCADOR realizar o bloqueio do veículo."
+   },
+   {
+    "id": "blk-059",
+    "type": "heading",
+    "text": "Do foro"
+   },
+   {
+    "id": "blk-060",
+    "type": "clause",
+    "text": "As partes elegem o Foro da Comarca de Porto Velho, RO, para dirimir quaisquer dúvidas ou controvérsias oriundas deste contrato, com renúncia expressa a qualquer outro, por mais privilegiado que seja."
+   },
+   {
+    "id": "blk-061",
+    "type": "text",
+    "text": "E, por estarem assim justos e contratados, firmam o presente instrumento em 02 (duas) vias de igual teor e forma."
+   },
+   {
+    "id": "blk-062",
+    "type": "closing",
+    "text": "Local e data: Porto Velho, RO, [DATA DE INÍCIO]"
+   }
+  ]
+ }
+}

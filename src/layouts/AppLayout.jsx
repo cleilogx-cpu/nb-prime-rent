@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { LifeBuoy, LogOut, Menu, Settings, UserCircle2 } from 'lucide-react'
 import Sidebar from '../components/Sidebar.jsx'
 import { useAuth } from '../hooks/useAuth.jsx'
+import { useCompany } from '../hooks/useCompany.js'
 
 const pageTitles = {
   '/': 'Dashboard',
@@ -15,6 +16,7 @@ const pageTitles = {
   '/manutencao': 'Manutenção',
   '/historico': 'Histórico',
   '/ajuda': 'Ajuda e contato',
+  '/configuracoes': 'Configurações',
 }
 
 export default function AppLayout() {
@@ -23,6 +25,7 @@ export default function AppLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const { signOut, user } = useAuth()
+  const { displayName } = useCompany()
   const currentTitle = pageTitles[location.pathname] || 'NB Prime Rent'
 
   return (
@@ -42,10 +45,17 @@ export default function AppLayout() {
                 <Menu size={20} />
               </button>
 
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.35em] text-[#D4AF37]">NB Prime Rent</p>
-                <h1 className="text-lg font-semibold text-white">{currentTitle}</h1>
-              </div>
+              {displayName ? (
+                <div className="min-w-0">
+                  <p className="truncate text-base font-bold uppercase tracking-wide text-white sm:text-lg">{displayName}</p>
+                  <p className="truncate text-[10px] uppercase tracking-[0.35em] text-[#D4AF37]">NB Prime Rent · {currentTitle}</p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.35em] text-[#D4AF37]">NB Prime Rent</p>
+                  <h1 className="text-lg font-semibold text-white">{currentTitle}</h1>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-3">

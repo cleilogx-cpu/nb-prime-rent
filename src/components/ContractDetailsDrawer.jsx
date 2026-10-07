@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { Download, FileText, PenLine, Pencil, RotateCcw, X, XCircle } from 'lucide-react'
 import { downloadContractDocx } from '../lib/contractDocx.js'
 import { downloadContractPdf } from '../lib/contractPdf.js'
+import { getSnapshotForContract } from '../services/contractDocumentService.js'
 import { formatCurrency, formatDate, formatTenantAddress } from '../lib/format.js'
 import { FINANCE_MODEL_LABELS, PERIODICITY_LABELS } from '../lib/constants.js'
 import DocumentDossie from './DocumentDossie.jsx'
 
 export default function ContractDetailsDrawer({ open, contract, onClose, onOpenSign, onCancel, onEdit, onReactivate, reactivating }) {
   const [downloading, setDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState('')
 
   if (!open || !contract) {
     return null
@@ -20,18 +22,30 @@ export default function ContractDetailsDrawer({ open, contract, onClose, onOpenS
   const isCancelled = contract.status === 'Cancelado'
   const isEnded = contract.status === 'Encerrado'
 
-  const handleDownloadDocx = async () => {
+  // Baixa sempre a minuta guardada no contrato; contratos antigos (de antes
+  // do construtor) são remontados na hora com o primeiro modelo.
+  const handleDownload = async (kind) => {
     setDownloading(true)
+    setDownloadError('')
     try {
-      await downloadContractDocx(contract)
+      const { snapshot, error } = await getSnapshotForContract(contract)
+      if (error || !snapshot) {
+        setDownloadError(error?.message || 'Não foi possível montar o documento.')
+        return
+      }
+      const fileName = `${contract.contract_number || 'contrato'}.${kind}`
+      if (kind === 'docx') {
+        await downloadContractDocx(snapshot, fileName)
+      } else {
+        downloadContractPdf(snapshot, fileName)
+      }
     } finally {
       setDownloading(false)
     }
   }
 
-  const handleDownloadPdf = () => {
-    downloadContractPdf(contract)
-  }
+  const handleDownloadDocx = () => handleDownload('docx')
+  const handleDownloadPdf = () => handleDownload('pdf')
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/75 px-3 py-6 sm:px-4">
@@ -51,6 +65,11 @@ export default function ContractDetailsDrawer({ open, contract, onClose, onOpenS
           <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-4 text-sm text-slate-300">
             <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Status</p>
             <p className="mt-1 text-white">{contract.status}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-4 text-sm text-slate-300">
+            <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Documento</p>
+            <p className="mt-1 text-white">{contract.document_status || 'Rascunho'}</p>
+            {contract.template_version ? <p className="mt-1 text-xs text-slate-500">Modelo versão {contract.template_version}</p> : null}
           </div>
           {contract.finance_model ? (
             <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-4 text-sm text-slate-300">
@@ -92,12 +111,14 @@ export default function ContractDetailsDrawer({ open, contract, onClose, onOpenS
             <button
               type="button"
               onClick={handleDownloadPdf}
-              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-slate-200"
+              disabled={downloading}
+              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-slate-200 disabled:opacity-60"
             >
               <Download size={16} />
               Baixar PDF
             </button>
           </div>
+          {downloadError ? <p className="text-sm text-rose-300">{downloadError}</p> : null}
         </div>
 
         <div className="mt-6 flex flex-col-reverse gap-3 border-t border-white/10 pt-5 sm:flex-row sm:justify-end">
@@ -125,7 +146,7 @@ export default function ContractDetailsDrawer({ open, contract, onClose, onOpenS
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-200"
               >
                 <PenLine size={16} />
-                Assinar contrato
+                Continuar contrato
               </button>
             </>
           ) : null}

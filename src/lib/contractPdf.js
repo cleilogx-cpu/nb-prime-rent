@@ -1,5 +1,4 @@
 import { jsPDF } from 'jspdf'
-import { buildContractSections } from './contractDocumentContent.js'
 
 const PAGE_WIDTH = 210
 const MARGIN = 20
@@ -104,16 +103,25 @@ export function renderContractPdf(sections) {
         y += 2
         writeLines([section.text], { size: 12, style: 'bold', gap: 7 })
         break
-      case 'paragraph': {
+      case 'clausetitle': {
         const lines = doc.splitTextToSize(section.text, CONTENT_WIDTH)
+        ensureSpace(5 + 6)
+        writeLines(lines, { size: 10, style: 'bold', gap: 5 })
+        break
+      }
+      case 'paragraph': {
+        // indent: 1 = parágrafo (§), 2 = alínea -- recuo à esquerda de 6 mm por nível.
+        const offset = (section.indent || 0) * 6
+        const width = CONTENT_WIDTH - offset
+        const lines = doc.splitTextToSize(section.text, width)
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(10)
         lines.forEach((line, index) => {
           ensureSpace(5)
           if (index === lines.length - 1) {
-            doc.text(line, MARGIN, y)
+            doc.text(line, MARGIN + offset, y)
           } else {
-            drawJustifiedLine(doc, line, MARGIN, y, CONTENT_WIDTH)
+            drawJustifiedLine(doc, line, MARGIN + offset, y, width)
           }
           y += 5
         })
@@ -142,44 +150,28 @@ export function renderContractPdf(sections) {
         y += 1
         break
       case 'signature': {
-        // Desenha a imagem (ou, na falta dela, o texto fixo) da assinatura
-        // ENCOSTADA em cima da própria linha, antes de traçar a linha --
-        // senão o traço da assinatura ficaria por baixo dela. Sem nenhuma
-        // assinatura (preview antes de assinar, ou locatário que ainda não
-        // assinou), a linha fica em branco como sempre foi.
-        ensureSpace(35)
-        y += 10
+        // Só a identificação das partes (linha + nome + CPF + papel) -- a
+        // assinatura em si é feita fora do sistema (ex.: GOV.BR).
+        ensureSpace(40)
+        y += 14
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(10)
 
-        const lineWidth = 70
+        const lineWidth = 78
         const locadorX = MARGIN
-        const locatarioX = MARGIN + 90
-        const imgWidth = 50
-        const imgHeight = 18
-
-        if (section.locadorSignatureImage) {
-          doc.addImage(section.locadorSignatureImage, 'JPEG', locadorX + 5, y - imgHeight, imgWidth, imgHeight)
-        } else if (section.locadorSignatureText) {
-          doc.setFont('helvetica', 'italic')
-          doc.setFontSize(16)
-          doc.text(section.locadorSignatureText, locadorX + 10, y - 4)
-          doc.setFont('helvetica', 'normal')
-          doc.setFontSize(10)
-        }
-
-        if (section.locatarioSignatureImage) {
-          doc.addImage(section.locatarioSignatureImage, 'JPEG', locatarioX + 5, y - imgHeight, imgWidth, imgHeight)
-        }
+        const locatarioX = MARGIN + 92
 
         doc.line(locadorX, y, locadorX + lineWidth, y)
         doc.line(locatarioX, y, locatarioX + lineWidth, y)
         y += 5
-        doc.text(section.locador, locadorX, y)
-        doc.text(section.locatario, locatarioX, y)
+        doc.text(doc.splitTextToSize(section.locador || '', lineWidth)[0] || '', locadorX, y)
+        doc.text(doc.splitTextToSize(section.locatario || '', lineWidth)[0] || '', locatarioX, y)
         y += 5
-        doc.text('LOCADOR', locadorX, y)
-        doc.text('LOCATÁRIO', locatarioX, y)
+        doc.text(`CPF: ${section.locadorCpf || ''}`, locadorX, y)
+        doc.text(`CPF: ${section.locatarioCpf || ''}`, locatarioX, y)
+        y += 5
+        doc.text(section.locadorRole || 'LOCADOR', locadorX, y)
+        doc.text(section.locatarioRole || 'LOCATÁRIO', locatarioX, y)
         y += 15
         break
       }
@@ -208,21 +200,17 @@ export function renderContractPdf(sections) {
 }
 
 /**
- * Gera o PDF do contrato e devolve um Blob, pronto pra baixar ou anexar
- * (ex: subir pro Supabase Storage como o documento assinado).
+ * Gera o PDF a partir da minuta já validada (`snapshot.sections`) e devolve
+ * um Blob. O documento final é sempre idêntico à minuta que foi revisada --
+ * nunca é remontado a partir dos cadastros.
  */
-export function generateContractPdfBlob(contract, options = {}) {
-  const sections = buildContractSections(contract, options)
-  const doc = renderContractPdf(sections)
-  return doc.output('blob')
+export function generateContractPdfBlob(snapshot) {
+  return renderContractPdf(snapshot.sections).output('blob')
 }
 
 /**
  * Gera e já dispara o download no navegador.
  */
-export function downloadContractPdf(contract, options = {}) {
-  const sections = buildContractSections(contract, options)
-  const doc = renderContractPdf(sections)
-  const fileName = `${contract.contract_number || 'contrato'}.pdf`
-  doc.save(fileName)
+export function downloadContractPdf(snapshot, fileName = 'contrato.pdf') {
+  renderContractPdf(snapshot.sections).save(fileName)
 }

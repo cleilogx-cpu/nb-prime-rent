@@ -15,7 +15,6 @@ import {
   TextRun,
   WidthType,
 } from 'docx'
-import { buildContractSections } from './contractDocumentContent.js'
 
 // ~2cm de margem em twips (1cm = 566.9 twips) -- antes o docx usava a margem
 // padrão (bem mais larga de um lado), deixando o texto desalinhado com o
@@ -51,7 +50,7 @@ function textParagraph(text, { bold = false, italic = false, size = 20, align = 
   })
 }
 
-function signatureLineCell(name, label) {
+function signatureLineCell(name, cpf, label) {
   return new TableCell({
     width: { size: 50, type: WidthType.PERCENTAGE },
     borders: {
@@ -66,7 +65,8 @@ function signatureLineCell(name, label) {
         spacing: { after: 80 },
         children: [new TextRun({ text: ' ' })],
       }),
-      textParagraph(name, { size: 20, spacingAfter: 40 }),
+      textParagraph(name || '', { size: 20, spacingAfter: 40 }),
+      textParagraph(`CPF: ${cpf || ''}`, { size: 18, spacingAfter: 40 }),
       textParagraph(label, { size: 18, spacingAfter: 0 }),
     ],
   })
@@ -77,8 +77,9 @@ function signatureLineCell(name, label) {
  * documento Word editável. Quem gerar isso pode abrir no Word ou no Google
  * Docs e corrigir qualquer coisa na hora, sem precisar mexer no sistema.
  */
-export function buildContractDocx(contract) {
-  const sections = buildContractSections(contract)
+export function buildContractDocx(snapshot) {
+  const sections = snapshot.sections || []
+  const headerText = snapshot.header_text || 'Contrato de Locação'
   const children = []
 
   sections.forEach((section) => {
@@ -122,8 +123,19 @@ export function buildContractDocx(contract) {
           }),
         )
         break
+      case 'clausetitle':
+        children.push(textParagraph(section.text, { bold: true, size: 20, spacingAfter: 80, keepNext: true }))
+        break
       case 'paragraph':
-        children.push(textParagraph(section.text, { size: 20, align: AlignmentType.JUSTIFIED }))
+        // indent: 1 = parágrafo (§), 2 = alínea -- recuo de 0,6 cm por nível.
+        children.push(
+          new Paragraph({
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { after: 160 },
+            indent: section.indent ? { left: section.indent * 340 } : undefined,
+            children: [new TextRun({ text: section.text, size: 20 })],
+          }),
+        )
         break
       case 'list':
         // JUSTIFIED aqui também (não só nos parágrafos corridos) -- as
@@ -174,8 +186,8 @@ export function buildContractDocx(contract) {
               new TableRow({
                 cantSplit: true,
                 children: [
-                  signatureLineCell(section.locador, 'LOCADOR'),
-                  signatureLineCell(section.locatario, 'LOCATÁRIO'),
+                  signatureLineCell(section.locador, section.locadorCpf, section.locadorRole || 'LOCADOR'),
+                  signatureLineCell(section.locatario, section.locatarioCpf, section.locatarioRole || 'LOCATÁRIO'),
                 ],
               }),
             ],
@@ -205,7 +217,7 @@ export function buildContractDocx(contract) {
             children: [
               new Paragraph({
                 alignment: AlignmentType.RIGHT,
-                children: [new TextRun({ text: 'NB Prime Rent — Contrato de Locação', size: 14, color: '888888' })],
+                children: [new TextRun({ text: headerText, size: 14, color: '888888' })],
               }),
             ],
           }),
@@ -232,20 +244,18 @@ export function buildContractDocx(contract) {
 }
 
 /**
- * Gera o .docx e devolve um Blob — pronto pra baixar ou anexar (ex: subir
- * pro Supabase Storage como rascunho antes da assinatura).
+ * Gera o .docx e devolve um Blob — pronto pra baixar ou anexar ao dossiê.
+ * Usa a minuta já validada (`snapshot.sections`).
  */
-export async function generateContractDocxBlob(contract) {
-  const doc = buildContractDocx(contract)
-  return Packer.toBlob(doc)
+export async function generateContractDocxBlob(snapshot) {
+  return Packer.toBlob(buildContractDocx(snapshot))
 }
 
 /**
  * Gera e já dispara o download do .docx no navegador.
  */
-export async function downloadContractDocx(contract) {
-  const blob = await generateContractDocxBlob(contract)
-  const fileName = `${contract.contract_number || 'contrato'}.docx`
+export async function downloadContractDocx(snapshot, fileName = 'contrato.docx') {
+  const blob = await generateContractDocxBlob(snapshot)
 
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')

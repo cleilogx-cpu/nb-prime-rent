@@ -1,4 +1,4 @@
-export default function ConfirmDialog({ open, title, message, onCancel, onConfirm }) {
+export default function ConfirmDialog({ open, title, message, onCancel, onConfirm, confirmLabel = 'Confirmar exclusão' }) {
   if (!open) {
     return null
   }
@@ -22,7 +22,7 @@ export default function ConfirmDialog({ open, title, message, onCancel, onConfir
             onClick={onConfirm}
             className="rounded-2xl border border-rose-400/20 bg-rose-500/15 px-4 py-3 text-sm font-semibold text-rose-200"
           >
-            Confirmar exclusão
+            {confirmLabel}
           </button>
         </div>
       </div>

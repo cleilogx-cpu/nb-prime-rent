@@ -4,7 +4,8 @@ import { DOCUMENT_TYPE, OCR_STATUS } from '../lib/constants.js'
 const TABLE = 'contract_documents'
 const BUCKET = 'documents'
 
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf']
+export const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf', DOCX_MIME]
 const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024 // 8MB, já depois de comprimir imagem
 
 const IMAGE_MAX_DIMENSION = 1600 // px -- preserva legibilidade de texto (CNH/comprovante), corta peso de foto de celular
@@ -80,7 +81,7 @@ export async function uploadDocument(file, { draftSessionId, docType, tenantId, 
   const { data: userData } = await supabase.auth.getUser()
 
   const documentId = crypto.randomUUID()
-  const extension = processedFile.type === 'application/pdf' ? 'pdf' : 'jpg'
+  const extension = processedFile.type === 'application/pdf' ? 'pdf' : processedFile.type === DOCX_MIME ? 'docx' : 'jpg'
   const folder = contractId ? `contracts/${contractId}` : `drafts/${draftSessionId}`
   const storagePath = `${folder}/${documentId}-${docType}.${extension}`
 

@@ -1,5 +1,6 @@
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './hooks/useAuth.jsx'
+import { CompanyProvider } from './hooks/CompanyProvider.jsx'
 import AppLayout from './layouts/AppLayout.jsx'
 import Login from './pages/Login.jsx'
 import Dashboard from './pages/Dashboard.jsx'
@@ -11,6 +12,8 @@ import Deposits from './pages/Deposits.jsx'
 import Expenses from './pages/Expenses.jsx'
 import Historico from './pages/Historico.jsx'
 import Help from './pages/Help.jsx'
+import Settings from './pages/Settings.jsx'
+import AdminRoute from './components/AdminRoute.jsx'
 import PlaceholderPage from './pages/PlaceholderPage.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 
@@ -18,6 +21,7 @@ function App() {
   return (
     <HashRouter>
       <AuthProvider>
+        <CompanyProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
 
@@ -46,9 +50,11 @@ function App() {
             />
             <Route path="historico" element={<Historico />} />
             <Route path="ajuda" element={<Help />} />
+            <Route path="configuracoes" element={<AdminRoute><Settings /></AdminRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
+        </CompanyProvider>
       </AuthProvider>
     </HashRouter>
   )

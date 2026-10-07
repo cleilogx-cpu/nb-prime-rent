@@ -6,9 +6,21 @@ import {
   generateContractNumber,
   validateContractDates,
 } from '../lib/contractLogic.js'
-import { CONTRACT_DEFAULTS, PERIODICITY, VEHICLE_STATUS } from '../lib/constants.js'
+import { PERIODICITY, VEHICLE_STATUS } from '../lib/constants.js'
 import { generateChargesForContract } from './chargesService.js'
 import { createOrSyncDepositForContract } from './depositsService.js'
+import { getContractRules } from './settingsService.js'
+import { renderMinuta } from './contractDocumentService.js'
+import { checkCnhValidity } from '../lib/cnhRule.js'
+
+export const DOCUMENT_STATUS = {
+  RASCUNHO: 'Rascunho',
+  MINUTA_GERADA: 'Minuta gerada',
+  MINUTA_VALIDADA: 'Minuta validada',
+  CONTRATO_GERADO: 'Contrato gerado',
+  AGUARDANDO_ASSINATURA: 'Aguardando assinatura',
+  ASSINADO: 'Contrato assinado',
+}
 
 const TABLE = 'contracts'
 
@@ -117,6 +129,7 @@ export async function createContract(payload) {
   }
 
   const normalizedPayload = normalizeContractPayload({ ...payload, tenant_id: tenant.id })
+  const rules = await getContractRules()
 
   const { data, error } = await supabase
     .from(TABLE)
@@ -128,12 +141,13 @@ export async function createContract(payload) {
       finance_model: null,
       contract_number: generateContractNumber(new Date().getFullYear()),
       status: 'Rascunho',
-      // Snapshot da multa/juros padrão no momento da criação (seção 13 do
-      // pedido) -- nunca recalculado depois, mesmo que CONTRACT_DEFAULTS
-      // mude no futuro. updateContract não grava esses dois campos, então
+      // Snapshot da multa/juros definidos em Configurações → Regras
+      // Contratuais no momento da criação -- nunca recalculado depois,
+      // mesmo que a configuração mude (ex.: multa 10% → 5% só vale pros
+      // contratos novos). updateContract não grava esses dois campos, então
       // editar um Rascunho não altera o valor gravado aqui.
-      late_fee_percent: CONTRACT_DEFAULTS.lateFeePercent,
-      late_interest_percent_month: CONTRACT_DEFAULTS.lateInterestPercentMonth,
+      late_fee_percent: rules.lateFeePercent,
+      late_interest_percent_month: rules.lateInterestPercentMonth,
     })
     .select(CONTRACT_SELECT)
     .single()
@@ -170,7 +184,16 @@ export async function updateContract(id, payload) {
 
   const { data, error } = await supabase
     .from(TABLE)
-    .update(normalizedPayload)
+    // Qualquer correção invalida a minuta já gerada/validada -- ela precisa
+    // ser gerada de novo a partir dos dados corrigidos (mesmo contrato,
+    // nenhum registro novo).
+    .update({
+      ...normalizedPayload,
+      document_status: DOCUMENT_STATUS.RASCUNHO,
+      contract_snapshot: null,
+      minuta_validated_at: null,
+      minuta_validated_by: null,
+    })
     .eq('id', id)
     .eq('status', 'Rascunho')
     .select(CONTRACT_SELECT)
@@ -184,6 +207,93 @@ export async function updateContract(id, payload) {
       console.warn('Falha ao sincronizar a caução do contrato:', depositError.message)
     }
   }
+
+  return { data, error }
+}
+
+/**
+ * Gera a minuta do contrato (Rascunho) a partir do MODELO ATIVO + dados
+ * reais (empresa/responsável, locatário, veículo, condições) e grava no
+ * próprio contrato -- gerar de novo (depois de "Voltar e corrigir")
+ * sobrescreve a minuta anterior, nunca cria outro contrato.
+ * Dados da empresa/responsável faltando = erro (não gera minuta pela metade).
+ */
+export async function generateMinuta(id) {
+  const { data: contract, error: fetchError } = await getContractById(id)
+  if (fetchError || !contract) {
+    return { data: null, error: fetchError || { message: 'Contrato não encontrado.' } }
+  }
+  if (contract.status !== 'Rascunho') {
+    return { data: null, error: { message: 'A minuta só pode ser gerada para contrato em Rascunho.' } }
+  }
+
+  const rules = await getContractRules()
+  const cnh = checkCnhValidity(contract.tenants?.cnh_validity, rules.minCnhValidityDays)
+  if (!cnh.ok) {
+    return { data: null, error: { message: cnh.message } }
+  }
+
+  const rendered = await renderMinuta(contract)
+  if (rendered.error) {
+    return { data: null, error: rendered.error }
+  }
+
+  if (rendered.missingConfig.length > 0) {
+    const names = rendered.missingConfig.map((item) => `${item.label} (${item.groupLabel})`).join(', ')
+    return {
+      data: null,
+      missingConfig: rendered.missingConfig,
+      error: { message: `Faltam dados nas Configurações para montar o contrato: ${names}. Peça ao administrador para preencher.` },
+    }
+  }
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({
+      contract_snapshot: rendered.snapshot,
+      template_id: rendered.template.id,
+      template_version: rendered.template.version,
+      document_status: DOCUMENT_STATUS.MINUTA_GERADA,
+      minuta_validated_at: null,
+      minuta_validated_by: null,
+    })
+    .eq('id', id)
+    .eq('status', 'Rascunho')
+    .select(CONTRACT_SELECT)
+    .single()
+
+  return { data, error, missingContract: rendered.missingContract }
+}
+
+/** Confirma que a minuta foi revisada -- só depois disso o documento final é gerado. */
+export async function validateMinuta(id) {
+  const userId = await getCurrentUserId()
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({
+      document_status: DOCUMENT_STATUS.MINUTA_VALIDADA,
+      minuta_validated_at: new Date().toISOString(),
+      minuta_validated_by: userId,
+    })
+    .eq('id', id)
+    .eq('status', 'Rascunho')
+    .eq('document_status', DOCUMENT_STATUS.MINUTA_GERADA)
+    .select(CONTRACT_SELECT)
+    .single()
+
+  return { data, error }
+}
+
+/** Avança o status do documento (Contrato gerado -> Aguardando assinatura). */
+export async function setDocumentStatus(id, documentStatus) {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({ document_status: documentStatus })
+    .eq('id', id)
+    .eq('status', 'Rascunho')
+    .select(CONTRACT_SELECT)
+    .single()
 
   return { data, error }
 }
@@ -258,6 +368,8 @@ export async function signContract(id, { signed_document_url } = {}) {
       status: 'Ativo',
       rental_id: rental.id,
       signed_document_url: signed_document_url || contract.signed_document_url,
+      document_status: DOCUMENT_STATUS.ASSINADO,
+      signed_attached_at: new Date().toISOString(),
     })
     .eq('id', id)
     .select(CONTRACT_SELECT)

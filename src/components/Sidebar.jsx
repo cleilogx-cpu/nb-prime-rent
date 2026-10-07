@@ -5,15 +5,12 @@ import {
   DollarSign,
   FileText,
   Home,
-  Settings,
   ShieldCheck,
   Truck,
   Wrench,
   X,
   BadgeCheck,
 } from 'lucide-react'
-
-const adminItems = [{ label: 'Configurações', to: '/configuracoes', icon: Settings }]
 
 const menuItems = [
   { label: 'Dashboard', to: '/', icon: Home },
@@ -28,8 +25,7 @@ const menuItems = [
 ]
 
 export default function Sidebar({ open, setOpen }) {
-  const { isAdmin, displayName } = useCompany()
-  const items = isAdmin ? [...menuItems, ...adminItems] : menuItems
+  const { displayName } = useCompany()
 
   return (
     <aside
@@ -59,7 +55,7 @@ export default function Sidebar({ open, setOpen }) {
       </div>
 
       <nav className="flex-1 space-y-2 overflow-y-auto pr-1">
-        {items.map((item) => {
+        {menuItems.map((item) => {
           const Icon = item.icon
           return (
             <NavLink

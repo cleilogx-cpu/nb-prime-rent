@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { LifeBuoy, LogOut, Menu, Settings, UserCircle2 } from 'lucide-react'
+import { LifeBuoy, LogOut, Menu, Settings, SlidersHorizontal, UserCircle2 } from 'lucide-react'
 import Sidebar from '../components/Sidebar.jsx'
 import { useAuth } from '../hooks/useAuth.jsx'
 import { useCompany } from '../hooks/useCompany.js'
@@ -25,7 +25,7 @@ export default function AppLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const { signOut, user } = useAuth()
-  const { displayName } = useCompany()
+  const { displayName, isAdmin } = useCompany()
   const currentTitle = pageTitles[location.pathname] || 'NB Prime Rent'
 
   return (
@@ -83,6 +83,20 @@ export default function AppLayout() {
                       aria-label="Fechar configurações"
                     />
                     <div role="menu" className="absolute right-0 z-40 mt-2 w-56 rounded-2xl border border-white/10 bg-[#111111] p-2 shadow-2xl shadow-black/50">
+                      {isAdmin ? (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setSettingsOpen(false)
+                            navigate('/configuracoes')
+                          }}
+                          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-200 transition hover:bg-white/5"
+                        >
+                          <SlidersHorizontal size={16} className="text-[#D4AF37]" />
+                          Configurações
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         role="menuitem"

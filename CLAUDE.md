@@ -163,3 +163,13 @@ de investigar a fundo ou implementar qualquer coisa "do zero".
    (caução "v1", mais simples) ainda estão em uso ou se `contract_deposits`
    (caução "v2", ligada ao contrato, com devolução) os substituiu — as
    duas tabelas existem em produção.
+
+## Configurações + modelo de contrato (07/10/2026)
+
+- **Admin** = `auth.users.raw_app_meta_data->>'role' = 'admin'` (função SQL `is_app_admin()`; RLS de `company_settings` e `contract_templates` só deixa admin escrever). Quem for promovido precisa sair e entrar (ou o token renovar) pra ver o menu Configurações.
+- **Modelo de contrato** vive no banco (`contract_templates`, versões Rascunho → Ativo → Arquivado; ativo nunca é editado, editar = nova versão). Texto, PIX, foro, franquia etc. são DADO do modelo, nunca código (`contractDocumentContent.js` foi apagado). Campos dinâmicos `[NOME DO LOCATÁRIO]` etc. estão em `src/lib/contractTemplate.js`.
+- **Contrato guarda a minuta** (`contracts.contract_snapshot`, `template_version`) — mudar modelo/configuração nunca altera contrato antigo. Contrato sem snapshot (anterior ao construtor) é remontado na hora com a versão 1, sem gravar.
+- **Fluxo**: Locação → Gerar minuta → Revisar/Validar → Documento final (PDF+Word no dossiê) → Assinatura EXTERNA (GOV.BR) → anexar PDF assinado ativa o contrato (`signContract`). Assinatura desenhada (SignaturePad / api/signatures) foi removida; `contract_signatures` fica só como histórico.
+- `document_status` (Rascunho, Minuta gerada, Minuta validada, Contrato gerado, Aguardando assinatura, Contrato assinado) é separado de `status` (operacional).
+- Seed específico da NB Prime (responsável Edson + modelo v1) em `supabase/seeds/nb_prime_initial_setup.json` — é dado, carregado uma vez no banco.
+- Rodar SQL no editor do Supabase: digitar texto longo é lento/trava a aba; usar `window.monaco.editor.getModels()[0].setValue(...)` via javascript_tool e depois ctrl+Enter.

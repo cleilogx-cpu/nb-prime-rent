@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
-import { LogOut, Menu, UserCircle2 } from 'lucide-react'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { LifeBuoy, LogOut, Menu, Settings, UserCircle2 } from 'lucide-react'
 import Sidebar from '../components/Sidebar.jsx'
 import { useAuth } from '../hooks/useAuth.jsx'
 
@@ -14,10 +14,13 @@ const pageTitles = {
   '/despesas': 'Custos',
   '/manutencao': 'Manutenção',
   '/historico': 'Histórico',
+  '/ajuda': 'Ajuda e contato',
 }
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const navigate = useNavigate()
   const location = useLocation()
   const { signOut, user } = useAuth()
   const currentTitle = pageTitles[location.pathname] || 'NB Prime Rent'
@@ -49,6 +52,42 @@ export default function AppLayout() {
               <div className="hidden items-center gap-2 rounded-2xl border border-white/10 bg-[#111111] px-3 py-2 text-sm text-slate-300 sm:flex">
                 <UserCircle2 size={18} className="text-[#D4AF37]" />
                 <span className="max-w-[180px] truncate">{user?.email || 'Usuário'}</span>
+              </div>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setSettingsOpen((state) => !state)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-[#111111] text-[#D4AF37] transition hover:bg-white/5"
+                  aria-label="Configurações"
+                  aria-haspopup="menu"
+                  aria-expanded={settingsOpen}
+                >
+                  <Settings size={18} />
+                </button>
+                {settingsOpen ? (
+                  <>
+                    <button
+                      type="button"
+                      className="fixed inset-0 z-30 cursor-default"
+                      onClick={() => setSettingsOpen(false)}
+                      aria-label="Fechar configurações"
+                    />
+                    <div role="menu" className="absolute right-0 z-40 mt-2 w-56 rounded-2xl border border-white/10 bg-[#111111] p-2 shadow-2xl shadow-black/50">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setSettingsOpen(false)
+                          navigate('/ajuda')
+                        }}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-200 transition hover:bg-white/5"
+                      >
+                        <LifeBuoy size={16} className="text-[#D4AF37]" />
+                        Ajuda e contato
+                      </button>
+                    </div>
+                  </>
+                ) : null}
               </div>
               <button
                 type="button"

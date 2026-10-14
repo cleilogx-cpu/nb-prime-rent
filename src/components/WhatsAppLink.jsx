@@ -5,8 +5,8 @@ import { buildWhatsAppLink } from '../lib/format.js'
  * nada quando o telefone não é válido pra montar o link (evita um botão que
  * não leva a lugar nenhum).
  */
-export default function WhatsAppLink({ phone, className = '' }) {
-  const link = buildWhatsAppLink(phone)
+export default function WhatsAppLink({ phone, message, className = '' }) {
+  const link = buildWhatsAppLink(phone, message)
 
   if (!link) {
     return null

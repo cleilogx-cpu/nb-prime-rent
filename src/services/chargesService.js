@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient.js'
 import { generatePaymentSchedule } from '../lib/contractLogic.js'
 import { CHARGE_STATUS, RENTAL_STATUS, CONTRACT_STATUS } from '../lib/constants.js'
+import { DUE_SOON_DAYS, addDaysISO, daysUntil, todayLocalISO } from '../lib/chargeDue.js'
 
 const TABLE = 'contract_charges'
 
@@ -21,6 +22,21 @@ export async function generateChargesForContract(contract, rental) {
   )
 
   if (schedule.length === 0) {
+    return { data: [], error: null }
+  }
+
+  // Nunca gera duas vezes o cronograma do mesmo contrato (ex.: ativação
+  // repetida depois de uma falha no meio) -- cobranças duplicadas
+  // apareceriam em dobro em "próximos vencimentos"/"atrasados".
+  const { count: existingCount, error: existingError } = await supabase
+    .from(TABLE)
+    .select('id', { count: 'exact', head: true })
+    .eq('contract_id', contract.id)
+
+  if (existingError) {
+    return { data: [], error: existingError }
+  }
+  if ((existingCount ?? 0) > 0) {
     return { data: [], error: null }
   }
 
@@ -54,12 +70,15 @@ export async function generateChargesForContract(contract, rental) {
 const ACTIVE_CHARGE_SELECT = '*, contracts!inner(contract_number, status), vehicles(plate, model), rentals!inner(status), tenants(full_name, phone, whatsapp, address_street, address_number, address_neighborhood, address_zip, address_complement, address_city, address_state, address)'
 
 /**
- * Próximos vencimentos: cobranças pendentes com vencimento hoje ou no
- * futuro, mais próximas primeiro, de locações/contratos ativos. Usado na
- * Visão Geral do Dashboard.
+ * Próximos vencimentos: cobranças pendentes de locações/contratos ativos
+ * com vencimento de hoje até daqui a `days` dias (padrão 7), mais próximas
+ * primeiro. Usado no Dashboard (cobrança preventiva). A data de "hoje" é a
+ * do calendário local -- antes era a data em UTC, que à noite já era o dia
+ * seguinte e empurrava o "hoje" e o "atrasado" um dia.
  */
-export async function listUpcomingCharges(limit = 8) {
-  const today = new Date().toISOString().slice(0, 10)
+export async function listUpcomingCharges({ days = DUE_SOON_DAYS, limit = 50 } = {}) {
+  const today = todayLocalISO()
+  const until = addDaysISO(today, days)
 
   const { data, error } = await supabase
     .from(TABLE)
@@ -68,6 +87,7 @@ export async function listUpcomingCharges(limit = 8) {
     .eq('rentals.status', RENTAL_STATUS.ATIVA)
     .eq('contracts.status', CONTRACT_STATUS.ATIVO)
     .gte('due_date', today)
+    .lte('due_date', until)
     .order('due_date', { ascending: true })
     .limit(limit)
 
@@ -79,8 +99,8 @@ export async function listUpcomingCharges(limit = 8) {
  * locações/contratos ativos. `overdue_days` é calculado aqui em cima da
  * data de hoje -- não fica gravado, porque "hoje" muda todo dia.
  */
-export async function listOverdueCharges(limit = 30) {
-  const today = new Date().toISOString().slice(0, 10)
+export async function listOverdueCharges(limit = 100) {
+  const today = todayLocalISO()
 
   const { data, error } = await supabase
     .from(TABLE)
@@ -96,13 +116,10 @@ export async function listOverdueCharges(limit = 30) {
     return { data: [], error }
   }
 
-  const todayTime = new Date(`${today}T00:00:00`).getTime()
-
-  const withOverdueDays = (data ?? []).map((charge) => {
-    const dueTime = new Date(`${charge.due_date}T00:00:00`).getTime()
-    const overdueDays = Math.max(0, Math.round((todayTime - dueTime) / (1000 * 60 * 60 * 24)))
-    return { ...charge, overdue_days: overdueDays }
-  })
+  const withOverdueDays = (data ?? []).map((charge) => ({
+    ...charge,
+    overdue_days: Math.max(0, -daysUntil(charge.due_date, today)),
+  }))
 
   return { data: withOverdueDays, error: null }
 }

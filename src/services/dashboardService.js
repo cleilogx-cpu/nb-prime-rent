@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabaseClient.js'
 import { summarizeVehicleStatuses } from '../lib/vehicleStatus.js'
 import { computePaymentTotals } from '../lib/paymentAggregation.js'
-import { listOverdueCharges } from './chargesService.js'
+import { listOverdueCharges, listUpcomingCharges } from './chargesService.js'
 import { listRentalsWithPendingChecklist } from './locationsService.js'
 
 /**
@@ -29,6 +29,13 @@ export async function fetchOverviewData() {
     return { data: null, error: overdueError }
   }
 
+  // Cobrança preventiva: vencimentos de hoje até 7 dias. Falha aqui também
+  // não derruba o Dashboard (é lembrete, igual às pendências).
+  const { data: upcomingCharges, error: upcomingError } = await listUpcomingCharges()
+  if (upcomingError) {
+    console.warn('Falha ao carregar os próximos vencimentos:', upcomingError.message)
+  }
+
   // Falha aqui não derruba o Dashboard inteiro -- Pendências é um lembrete
   // operacional, não pode esconder frota/pagamentos atrasados se der erro.
   const { data: pendingChecklists, error: pendingError } = await listRentalsWithPendingChecklist()
@@ -45,6 +52,7 @@ export async function fetchOverviewData() {
       availableCount,
       maintenanceCount,
       overdueCharges: overdueCharges ?? [],
+      upcomingCharges: upcomingCharges ?? [],
       pendingChecklists: pendingChecklists ?? [],
     },
     error: null,

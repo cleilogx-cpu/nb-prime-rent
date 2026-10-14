@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, FileText, PlusCircle } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { AlertTriangle, ChevronLeft, ChevronRight, FileText, PlusCircle } from 'lucide-react'
 import ContractCard from '../components/ContractCard.jsx'
 import ContractDetailsDrawer from '../components/ContractDetailsDrawer.jsx'
 import ContractFilters from '../components/ContractFilters.jsx'
@@ -7,12 +7,15 @@ import ContractForm from '../components/ContractForm.jsx'
 import ContractWizard from '../components/ContractWizard.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import Toast from '../components/Toast.jsx'
-import { cancelContract, listContracts, reactivateContract, updateContract } from '../services/contractsService.js'
+import { cancelContract, getContractCounts, listContractsPage, reactivateContract, updateContract } from '../services/contractsService.js'
+import { PAGE_SIZE, totalPages } from '../lib/chargeDue.js'
+import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 
-function SummaryCard({ label, value, icon }) {
-  return (
-    <div className="rounded-[28px] border border-white/10 bg-slate-900/80 p-5 shadow-lg shadow-black/20">
+// Indicador do topo: mostra o número real e, ao clicar, filtra a lista abaixo.
+function SummaryCard({ label, value, icon, onClick }) {
+  const card = (
+    <div className={`rounded-[28px] border border-white/10 bg-slate-900/80 p-5 shadow-lg shadow-black/20 ${onClick ? 'transition hover:border-amber-300/30' : ''}`}>
       <div className="flex items-center justify-between gap-4">
         <p className="text-sm uppercase tracking-[0.35em] text-slate-500">{label}</p>
         <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-300/10 text-amber-300">
@@ -22,14 +25,26 @@ function SummaryCard({ label, value, icon }) {
       <p className="mt-5 text-3xl font-semibold text-white">{value}</p>
     </div>
   )
+
+  return onClick ? (
+    <button type="button" onClick={onClick} className="block w-full text-left" aria-label={`${label}: ${value}. Filtrar a lista`}>
+      {card}
+    </button>
+  ) : (
+    card
+  )
 }
 
 export default function Contracts() {
   const [contracts, setContracts] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [initialLoading, setInitialLoading] = useState(true)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('Ativo')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [page, setPage] = useState(1)
+  const [matchCount, setMatchCount] = useState(0)
+  const [counts, setCounts] = useState({ drafts: 0, active: 0, total: 0 })
+  const debouncedSearch = useDebouncedValue(search, 300)
   const [formOpen, setFormOpen] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
   const [resumeContract, setResumeContract] = useState(null)
@@ -41,26 +56,65 @@ export default function Contracts() {
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false)
   const [toast, setToast] = useState({ message: '', type: 'success' })
 
+  // Lista: 30 por página, mais recentes primeiro; busca e status consultam
+  // TODO o histórico no banco.
   const loadContracts = async () => {
-    setLoading(true)
     setError(null)
 
-    const { data, error: fetchError } = await listContracts({ search, status: statusFilter })
+    const { data, count, error: fetchError } = await listContractsPage({ search: debouncedSearch, status: statusFilter, page })
 
     if (fetchError) {
       setError(fetchError.message || 'Erro ao carregar contratos do Supabase.')
       setContracts([])
+      setMatchCount(0)
     } else {
       setContracts(data ?? [])
+      setMatchCount(count)
     }
 
-    setLoading(false)
+    setInitialLoading(false)
+  }
+
+  // Indicadores do topo: números reais, independentes de busca/filtro/página.
+  const loadCounts = async () => {
+    const { data } = await getContractCounts()
+    setCounts(data)
+  }
+
+  // Depois de criar/assinar/cancelar/reativar/editar: atualiza lista e totais.
+  const refreshAll = async () => {
+    await Promise.all([loadContracts(), loadCounts()])
   }
 
   useEffect(() => {
     loadContracts()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, statusFilter])
+  }, [debouncedSearch, statusFilter, page])
+
+  useEffect(() => {
+    let cancelled = false
+    getContractCounts().then(({ data }) => {
+      if (!cancelled) {
+        setCounts(data)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Mudou busca ou status: volta pra primeira página.
+  const handleSearchChange = (value) => {
+    setSearch(value)
+    setPage(1)
+  }
+
+  const handleStatusChange = (value) => {
+    setStatusFilter(value)
+    setPage(1)
+  }
+
+  const pageCount = totalPages(matchCount)
 
   // ContractForm agora só existe pro modo Editar (Fase 2 do Contrato
   // Inteligente) -- criar contrato novo passou a ser feito pelo
@@ -81,7 +135,7 @@ export default function Contracts() {
       setToast({ message: 'Contrato atualizado.', type: 'success' })
       setFormOpen(false)
       setEditingContract(null)
-      await loadContracts()
+      await refreshAll()
       setSelectedContract(data)
       setDetailsOpen(true)
     }
@@ -99,7 +153,7 @@ export default function Contracts() {
     setWizardOpen(false)
     setResumeContract(null)
     setToast({ message: 'Contrato assinado e ativo! A locação foi criada e o veículo está marcado como Alugado.', type: 'success' })
-    await loadContracts()
+    await refreshAll()
     if (openDetails) {
       setSelectedContract(contract)
       setDetailsOpen(true)
@@ -132,7 +186,7 @@ export default function Contracts() {
     } else {
       setToast({ message: 'Contrato reativado como Rascunho.', type: 'success' })
       setSelectedContract(data)
-      await loadContracts()
+      await refreshAll()
     }
 
     setReactivating(false)
@@ -163,16 +217,13 @@ export default function Contracts() {
       setToast({ message: 'Contrato cancelado.', type: 'success' })
       setDetailsOpen(false)
       setSelectedContract(null)
-      await loadContracts()
+      await refreshAll()
     }
 
     setConfirmCancelOpen(false)
   }
 
-  const draftCount = useMemo(() => contracts.filter((c) => c.status === 'Rascunho').length, [contracts])
-  const activeCount = useMemo(() => contracts.filter((c) => c.status === 'Ativo').length, [contracts])
-
-  if (loading) {
+  if (initialLoading) {
     return <LoadingScreen />
   }
 
@@ -197,14 +248,14 @@ export default function Contracts() {
         </div>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <SummaryCard label="Rascunhos (aguardando assinatura)" value={draftCount} icon={<FileText size={18} />} />
-          <SummaryCard label="Ativos" value={activeCount} icon={<FileText size={18} />} />
-          <SummaryCard label="Total" value={contracts.length} icon={<FileText size={18} />} />
+          <SummaryCard label="Rascunhos (aguardando assinatura)" value={counts.drafts} icon={<FileText size={18} />} onClick={() => handleStatusChange('Rascunho')} />
+          <SummaryCard label="Ativos" value={counts.active} icon={<FileText size={18} />} onClick={() => handleStatusChange('Ativo')} />
+          <SummaryCard label="Total" value={counts.total} icon={<FileText size={18} />} onClick={() => { handleStatusChange(''); setSearch('') }} />
         </div>
       </div>
 
       <div className="space-y-6">
-        <ContractFilters search={search} setSearch={setSearch} statusFilter={statusFilter} setStatusFilter={setStatusFilter} />
+        <ContractFilters search={search} setSearch={handleSearchChange} statusFilter={statusFilter} setStatusFilter={handleStatusChange} />
 
         {error ? (
           <div className="rounded-[28px] border border-rose-500/30 bg-rose-500/10 p-6 text-slate-100">
@@ -218,8 +269,12 @@ export default function Contracts() {
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-300/10 text-amber-300">
               <AlertTriangle size={20} />
             </div>
-            <h3 className="mt-4 text-xl font-semibold text-white">Nenhum contrato ainda</h3>
-            <p className="mt-2 text-sm text-slate-400">Clique em "Novo contrato" pra começar — escolha o veículo e preencha os dados do locatário.</p>
+            <h3 className="mt-4 text-xl font-semibold text-white">{search || statusFilter ? 'Nenhum contrato encontrado' : 'Nenhum contrato ainda'}</h3>
+            <p className="mt-2 text-sm text-slate-400">
+              {search || statusFilter
+                ? 'Ajuste a busca ou o filtro de status.'
+                : 'Clique em "Novo contrato" pra começar — escolha o veículo e preencha os dados do locatário.'}
+            </p>
           </div>
         ) : null}
 
@@ -229,6 +284,34 @@ export default function Contracts() {
               <ContractCard key={contract.id} contract={contract} onOpenDetails={handleOpenDetails} />
             ))}
           </div>
+        ) : null}
+
+        {!error && matchCount > PAGE_SIZE ? (
+          <nav aria-label="Paginação de contratos" className="flex flex-col items-center justify-between gap-3 rounded-[28px] border border-white/10 bg-slate-950/70 p-4 sm:flex-row">
+            <p className="text-sm text-slate-400">
+              Página {page} de {pageCount} · {matchCount} contratos
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={page <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                className="inline-flex min-h-11 items-center gap-1 rounded-2xl border border-white/10 bg-slate-900 px-4 py-2 text-sm text-slate-200 disabled:opacity-40"
+              >
+                <ChevronLeft size={16} />
+                Anterior
+              </button>
+              <button
+                type="button"
+                disabled={page >= pageCount}
+                onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+                className="inline-flex min-h-11 items-center gap-1 rounded-2xl border border-white/10 bg-slate-900 px-4 py-2 text-sm text-slate-200 disabled:opacity-40"
+              >
+                Próxima
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </nav>
         ) : null}
       </div>
 

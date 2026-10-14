@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { PlusCircle, CarFront, AlertTriangle } from 'lucide-react'
 import VehicleCard from '../components/VehicleCard.jsx'
 import VehicleFilters from '../components/VehicleFilters.jsx'
@@ -9,9 +10,14 @@ import { createVehicle, deleteVehicle, listVehicles, updateVehicle } from '../se
 import { summarizeVehicleStatuses } from '../lib/vehicleStatus.js'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 
-function SummaryCard({ label, value, icon }) {
-  return (
-    <div className="rounded-[28px] border border-white/10 bg-slate-900/80 p-5 shadow-lg shadow-black/20">
+// ?status= na URL (o Dashboard usa esses atalhos) <-> valor do filtro de status.
+const STATUS_PARAM_TO_FILTER = { alugado: 'Alugado', disponivel: 'Disponível', manutencao: 'Manutenção' }
+const FILTER_TO_STATUS_PARAM = Object.fromEntries(Object.entries(STATUS_PARAM_TO_FILTER).map(([param, filter]) => [filter, param]))
+
+// Com `onClick` o indicador vira atalho pra lista filtrada (visual igual).
+function SummaryCard({ label, value, icon, onClick }) {
+  const card = (
+    <div className={`rounded-[28px] border border-white/10 bg-slate-900/80 p-5 shadow-lg shadow-black/20 ${onClick ? 'transition hover:border-amber-300/30' : ''}`}>
       <div className="flex items-center justify-between gap-4">
         <p className="text-sm uppercase tracking-[0.35em] text-slate-500">{label}</p>
         <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-300/10 text-amber-300">
@@ -21,14 +27,34 @@ function SummaryCard({ label, value, icon }) {
       <p className="mt-5 text-3xl font-semibold text-white">{value}</p>
     </div>
   )
+
+  return onClick ? (
+    <button type="button" onClick={onClick} className="block w-full text-left" aria-label={`${label}: ${value}. Filtrar a lista`}>
+      {card}
+    </button>
+  ) : (
+    card
+  )
 }
 
 export default function Vehicles() {
   const [vehicles, setVehicles] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [fleetSummary, setFleetSummary] = useState({ rentedCount: 0, availableCount: 0, maintenanceCount: 0, totalCount: 0 })
+  const [initialLoading, setInitialLoading] = useState(true)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const statusFilter = STATUS_PARAM_TO_FILTER[searchParams.get('status')] || ''
+
+  const setStatusFilter = (value) => {
+    const next = new URLSearchParams(searchParams)
+    if (value) {
+      next.set('status', FILTER_TO_STATUS_PARAM[value])
+    } else {
+      next.delete('status')
+    }
+    setSearchParams(next, { replace: true })
+  }
   const [formOpen, setFormOpen] = useState(false)
   const [editingVehicle, setEditingVehicle] = useState(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -36,8 +62,14 @@ export default function Vehicles() {
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState({ message: '', type: 'success' })
 
+  // Os quatro indicadores do topo sempre mostram a frota INTEIRA, mesmo
+  // com filtro/busca aplicados na lista abaixo.
+  const loadFleetSummary = async () => {
+    const { data } = await listVehicles()
+    setFleetSummary(summarizeVehicleStatuses(data ?? []))
+  }
+
   const loadVehicles = async () => {
-    setLoading(true)
     setError(null)
 
     const { data, error: fetchError } = await listVehicles({
@@ -52,12 +84,24 @@ export default function Vehicles() {
       setVehicles(data ?? [])
     }
 
-    setLoading(false)
+    setInitialLoading(false)
   }
 
   useEffect(() => {
     loadVehicles()
   }, [search, statusFilter])
+
+  useEffect(() => {
+    let cancelled = false
+    listVehicles().then(({ data }) => {
+      if (!cancelled) {
+        setFleetSummary(summarizeVehicleStatuses(data ?? []))
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const handleOpenCreate = () => {
     setEditingVehicle(null)
@@ -81,7 +125,7 @@ export default function Vehicles() {
       setToast({ message: editingVehicle ? 'Veículo atualizado com sucesso.' : 'Veículo criado com sucesso.', type: 'success' })
       setFormOpen(false)
       setEditingVehicle(null)
-      await loadVehicles()
+      await Promise.all([loadVehicles(), loadFleetSummary()])
     }
 
     setSubmitting(false)
@@ -103,16 +147,16 @@ export default function Vehicles() {
       setToast({ message: deleteError.message || 'Não foi possível excluir o veículo.', type: 'error' })
     } else {
       setToast({ message: 'Veículo excluído com sucesso.', type: 'success' })
-      await loadVehicles()
+      await Promise.all([loadVehicles(), loadFleetSummary()])
     }
 
     setConfirmOpen(false)
     setSelectedVehicle(null)
   }
 
-  const { rentedCount, availableCount, maintenanceCount, totalCount } = summarizeVehicleStatuses(vehicles)
+  const { rentedCount, availableCount, maintenanceCount, totalCount } = fleetSummary
 
-  if (loading) {
+  if (initialLoading) {
     return <LoadingScreen />
   }
 
@@ -137,10 +181,10 @@ export default function Vehicles() {
         </div>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard label="Veículos alugados" value={rentedCount} icon={<CarFront size={18} />} />
-          <SummaryCard label="Veículos disponíveis" value={availableCount} icon={<CarFront size={18} />} />
-          <SummaryCard label="Em manutenção" value={maintenanceCount} icon={<CarFront size={18} />} />
-          <SummaryCard label="Total da frota" value={totalCount} icon={<CarFront size={18} />} />
+          <SummaryCard label="Veículos alugados" value={rentedCount} icon={<CarFront size={18} />} onClick={() => setStatusFilter('Alugado')} />
+          <SummaryCard label="Veículos disponíveis" value={availableCount} icon={<CarFront size={18} />} onClick={() => setStatusFilter('Disponível')} />
+          <SummaryCard label="Em manutenção" value={maintenanceCount} icon={<CarFront size={18} />} onClick={() => setStatusFilter('Manutenção')} />
+          <SummaryCard label="Total da frota" value={totalCount} icon={<CarFront size={18} />} onClick={() => { setStatusFilter(''); setSearch('') }} />
         </div>
       </div>
 

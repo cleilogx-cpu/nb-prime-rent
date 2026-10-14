@@ -12,6 +12,7 @@ import { createOrSyncDepositForContract } from './depositsService.js'
 import { getContractRules } from './settingsService.js'
 import { renderMinuta } from './contractDocumentService.js'
 import { checkCnhValidity } from '../lib/cnhRule.js'
+import { PAGE_SIZE, pageRange, sanitizeSearchTerm } from '../lib/chargeDue.js'
 
 export const DOCUMENT_STATUS = {
   RASCUNHO: 'Rascunho',
@@ -102,6 +103,70 @@ export async function listContracts(filters = {}) {
     : data
 
   return { data: filtered, error: null }
+}
+
+/**
+ * Lista paginada (padrão 30 por página, mais recentes primeiro) usada na
+ * tela de Contratos. Busca e filtro de status são feitos no banco, então
+ * alcançam TODO o histórico -- não só a página carregada. A busca por
+ * locatário/placa/modelo primeiro acha os ids de locatários e veículos que
+ * combinam e depois filtra os contratos por eles (junto com o número).
+ */
+export async function listContractsPage({ search = '', status = '', page = 1, pageSize = PAGE_SIZE } = {}) {
+  let query = supabase.from(TABLE).select(CONTRACT_SELECT, { count: 'exact' })
+
+  if (status) {
+    query = query.eq('status', status)
+  }
+
+  const term = sanitizeSearchTerm(search)
+  if (term) {
+    const [{ data: tenants, error: tenantsError }, { data: vehicles, error: vehiclesError }] = await Promise.all([
+      supabase.from('tenants').select('id').ilike('full_name', `%${term}%`),
+      supabase.from('vehicles').select('id').or(`plate.ilike.%${term}%,model.ilike.%${term}%`),
+    ])
+
+    if (tenantsError || vehiclesError) {
+      return { data: [], count: 0, error: tenantsError || vehiclesError }
+    }
+
+    const conditions = [`contract_number.ilike.%${term}%`]
+    if (tenants?.length) {
+      conditions.push(`tenant_id.in.(${tenants.map((item) => item.id).join(',')})`)
+    }
+    if (vehicles?.length) {
+      conditions.push(`vehicle_id.in.(${vehicles.map((item) => item.id).join(',')})`)
+    }
+    query = query.or(conditions.join(','))
+  }
+
+  const { from, to } = pageRange(page, pageSize)
+  const { data, error, count } = await query.order('created_at', { ascending: false }).range(from, to)
+
+  return { data: data ?? [], count: count ?? 0, error }
+}
+
+/**
+ * Totais REAIS dos indicadores do topo de Contratos -- independentes de
+ * busca, filtro e página. "Rascunhos" = contratos em Rascunho (aguardando
+ * assinatura); "Total" = todos, de qualquer status.
+ */
+export async function getContractCounts() {
+  const countOf = (status) => {
+    let query = supabase.from(TABLE).select('id', { count: 'exact', head: true })
+    if (status) {
+      query = query.eq('status', status)
+    }
+    return query
+  }
+
+  const [drafts, active, total] = await Promise.all([countOf('Rascunho'), countOf('Ativo'), countOf('')])
+  const error = drafts.error || active.error || total.error
+
+  return {
+    data: { drafts: drafts.count ?? 0, active: active.count ?? 0, total: total.count ?? 0 },
+    error,
+  }
 }
 
 export async function getContractById(id) {

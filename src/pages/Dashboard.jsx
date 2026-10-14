@@ -1,18 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ClipboardCheck, ShieldCheck, Truck } from 'lucide-react'
+import { AlertTriangle, CalendarClock, ClipboardCheck, ShieldCheck, Truck } from 'lucide-react'
 import { getPendingChecklistItems } from '../lib/rentalChecklist.js'
 import { fetchOverviewData, fetchFinancialRawData } from '../services/dashboardService.js'
 import { listVehicles } from '../services/vehiclesService.js'
 import { computePaymentTotals, monthRange, yearRange, MONTH_LABELS } from '../lib/paymentAggregation.js'
 import { getVehicleDisplayStatus, isVehicleAvailable, isVehicleRented } from '../lib/vehicleStatus.js'
 import { formatCurrency, formatDate, formatTenantAddress } from '../lib/format.js'
+import { DUE_SOON_DAYS, buildChargeMessage, describeUpcoming, todayLocalISO } from '../lib/chargeDue.js'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 import WhatsAppLink from '../components/WhatsAppLink.jsx'
 
-function InfoCard({ label, value, icon }) {
-  return (
-    <div className="rounded-[28px] border border-white/10 bg-slate-900/80 p-6 shadow-lg shadow-black/20">
+function InfoCard({ label, value, icon, to }) {
+  const content = (
+    <div className={`rounded-[28px] border border-white/10 bg-slate-900/80 p-6 shadow-lg shadow-black/20 ${to ? 'transition hover:border-amber-300/30' : ''}`}>
       <div className="flex items-center justify-between gap-4">
         <p className="text-sm uppercase tracking-[0.35em] text-slate-500">{label}</p>
         <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-300/10 text-amber-300">
@@ -21,6 +22,15 @@ function InfoCard({ label, value, icon }) {
       </div>
       <p className="mt-6 text-3xl font-semibold text-white">{value}</p>
     </div>
+  )
+
+  // Com `to`, o cartão vira atalho pra lista de Veículos já filtrada.
+  return to ? (
+    <Link to={to} className="block" aria-label={`${label}: ${value}. Abrir lista de veículos`}>
+      {content}
+    </Link>
+  ) : (
+    content
   )
 }
 
@@ -42,8 +52,33 @@ function OverdueChargeRow({ charge }) {
       {tenant ? (
         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
           <span>{tenant.phone || tenant.whatsapp || 'Telefone não informado'}</span>
-          <WhatsAppLink phone={tenant.whatsapp || tenant.phone} />
+          <WhatsAppLink phone={tenant.whatsapp || tenant.phone} message={buildChargeMessage(charge, 'overdue')} />
           <span>· {formatTenantAddress(tenant)}</span>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+// Cobrança preventiva: vencimento de hoje até DUE_SOON_DAYS (7) dias.
+function UpcomingChargeRow({ charge, today }) {
+  const tenant = charge.tenants
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm">
+      <div className="flex items-center justify-between gap-3">
+        <Link to="/contracts" className="font-medium text-white hover:text-amber-300">
+          {charge.vehicles?.plate || 'Veículo'} — {tenant?.full_name || 'Locatário não informado'}
+        </Link>
+        <span className="font-semibold text-amber-300">{formatCurrency(charge.amount)}</span>
+      </div>
+      <p className="mt-1 text-xs text-slate-500">
+        Vencimento: {formatDate(charge.due_date)} · {describeUpcoming(charge.due_date, today)}
+      </p>
+      {tenant ? (
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+          <span>{tenant.phone || tenant.whatsapp || 'Telefone não informado'}</span>
+          <WhatsAppLink phone={tenant.whatsapp || tenant.phone} message={buildChargeMessage(charge, 'upcoming')} />
         </div>
       ) : null}
     </div>
@@ -191,16 +226,31 @@ export default function Dashboard() {
         </div>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          <InfoCard label="Veículos alugados" value={overview.rentedCount} icon={<Truck size={18} />} />
-          <InfoCard label="Veículos disponíveis" value={overview.availableCount} icon={<Truck size={18} />} />
-          <InfoCard label="Em manutenção" value={overview.maintenanceCount} icon={<ShieldCheck size={18} />} />
+          <InfoCard label="Veículos alugados" value={overview.rentedCount} icon={<Truck size={18} />} to="/vehicles?status=alugado" />
+          <InfoCard label="Veículos disponíveis" value={overview.availableCount} icon={<Truck size={18} />} to="/vehicles?status=disponivel" />
+          <InfoCard label="Em manutenção" value={overview.maintenanceCount} icon={<ShieldCheck size={18} />} to="/vehicles?status=manutencao" />
+        </div>
+      </div>
+
+      <div className="rounded-[32px] border border-white/10 bg-slate-900/80 p-6 shadow-xl shadow-black/30 sm:p-8">
+        <div className="flex items-center gap-3">
+          <CalendarClock size={18} className="text-amber-300" />
+          <h3 className="text-lg font-semibold text-white">Pagamentos próximos do vencimento — {overview.upcomingCharges.length}</h3>
+        </div>
+        <p className="mt-1 text-xs text-slate-500">Vencem hoje ou nos próximos {DUE_SOON_DAYS} dias. Use o WhatsApp para lembrar o locatário antes do vencimento.</p>
+        <div className="mt-5 space-y-3">
+          {overview.upcomingCharges.length === 0 ? (
+            <p className="text-sm text-slate-500">Nenhum pagamento vence nos próximos {DUE_SOON_DAYS} dias.</p>
+          ) : (
+            overview.upcomingCharges.map((charge) => <UpcomingChargeRow key={charge.id} charge={charge} today={todayLocalISO()} />)
+          )}
         </div>
       </div>
 
       <div className="rounded-[32px] border border-white/10 bg-slate-900/80 p-6 shadow-xl shadow-black/30 sm:p-8">
         <div className="flex items-center gap-3">
           <AlertTriangle size={18} className="text-rose-300" />
-          <h3 className="text-lg font-semibold text-white">Pagamentos atrasados</h3>
+          <h3 className="text-lg font-semibold text-white">Pagamentos atrasados — {overview.overdueCharges.length}</h3>
         </div>
         <div className="mt-5 space-y-3">
           {overview.overdueCharges.length === 0 ? (

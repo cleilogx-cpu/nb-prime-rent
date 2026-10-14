@@ -50,6 +50,18 @@ export function buildChargeMessage(charge, kind) {
   return `${greeting} Passando para lembrar que o pagamento de ${value} do veículo ${plate} vence em ${date}.`
 }
 
+/** Janela padrão da lista de Contratos: criados nos últimos 30 dias. */
+export const RECENT_CONTRACTS_DAYS = 30
+
+/**
+ * Início (00:00 no fuso do computador) de "há N dias", em ISO/UTC pronto pra
+ * comparar com `created_at`. Ex.: hoje 14/10 -> contratos criados a partir
+ * de 14/09 00:00.
+ */
+export function daysAgoStartISO(days, now = new Date()) {
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() - Number(days)).toISOString()
+}
+
 /** Mesmas regras de paginação em todas as telas: 30 por página. */
 export const PAGE_SIZE = 30
 

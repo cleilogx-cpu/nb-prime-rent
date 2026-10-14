@@ -8,7 +8,7 @@ import ContractWizard from '../components/ContractWizard.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import Toast from '../components/Toast.jsx'
 import { cancelContract, getContractCounts, listContractsPage, reactivateContract, updateContract } from '../services/contractsService.js'
-import { PAGE_SIZE, totalPages } from '../lib/chargeDue.js'
+import { PAGE_SIZE, RECENT_CONTRACTS_DAYS, daysAgoStartISO, totalPages } from '../lib/chargeDue.js'
 import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 
@@ -42,9 +42,16 @@ export default function Contracts() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
+  const [showAll, setShowAll] = useState(false)
   const [matchCount, setMatchCount] = useState(0)
   const [counts, setCounts] = useState({ drafts: 0, active: 0, total: 0 })
   const debouncedSearch = useDebouncedValue(search, 300)
+
+  // Ao abrir, a lista mostra os contratos criados nos últimos 30 dias (de
+  // qualquer status). Buscar, filtrar por status, clicar num indicador ou
+  // "Ver todos" consulta TODO o histórico.
+  const recentOnly = !showAll && !debouncedSearch.trim() && !statusFilter
+  const createdSince = recentOnly ? daysAgoStartISO(RECENT_CONTRACTS_DAYS) : ''
   const [formOpen, setFormOpen] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
   const [resumeContract, setResumeContract] = useState(null)
@@ -61,7 +68,7 @@ export default function Contracts() {
   const loadContracts = async () => {
     setError(null)
 
-    const { data, count, error: fetchError } = await listContractsPage({ search: debouncedSearch, status: statusFilter, page })
+    const { data, count, error: fetchError } = await listContractsPage({ search: debouncedSearch, status: statusFilter, createdSince, page })
 
     if (fetchError) {
       setError(fetchError.message || 'Erro ao carregar contratos do Supabase.')
@@ -89,7 +96,7 @@ export default function Contracts() {
   useEffect(() => {
     loadContracts()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch, statusFilter, page])
+  }, [debouncedSearch, statusFilter, page, showAll])
 
   useEffect(() => {
     let cancelled = false
@@ -250,12 +257,45 @@ export default function Contracts() {
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <SummaryCard label="Rascunhos (aguardando assinatura)" value={counts.drafts} icon={<FileText size={18} />} onClick={() => handleStatusChange('Rascunho')} />
           <SummaryCard label="Ativos" value={counts.active} icon={<FileText size={18} />} onClick={() => handleStatusChange('Ativo')} />
-          <SummaryCard label="Total" value={counts.total} icon={<FileText size={18} />} onClick={() => { handleStatusChange(''); setSearch('') }} />
+          <SummaryCard label="Total" value={counts.total} icon={<FileText size={18} />} onClick={() => { handleStatusChange(''); setSearch(''); setShowAll(true) }} />
         </div>
       </div>
 
       <div className="space-y-6">
         <ContractFilters search={search} setSearch={handleSearchChange} statusFilter={statusFilter} setStatusFilter={handleStatusChange} />
+
+        {!error ? (
+          <div className="flex flex-col gap-2 rounded-[28px] border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              {recentOnly
+                ? `Mostrando os contratos criados nos últimos ${RECENT_CONTRACTS_DAYS} dias (${matchCount}). Buscas e filtros consultam todo o histórico.`
+                : `Mostrando ${matchCount} contrato(s) de todo o histórico.`}
+            </p>
+            {recentOnly ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAll(true)
+                  setPage(1)
+                }}
+                className="min-h-11 rounded-2xl border border-white/10 bg-slate-900 px-4 py-2 text-slate-200"
+              >
+                Ver todos os contratos
+              </button>
+            ) : !search && !statusFilter ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAll(false)
+                  setPage(1)
+                }}
+                className="min-h-11 rounded-2xl border border-white/10 bg-slate-900 px-4 py-2 text-slate-200"
+              >
+                Voltar aos últimos {RECENT_CONTRACTS_DAYS} dias
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
         {error ? (
           <div className="rounded-[28px] border border-rose-500/30 bg-rose-500/10 p-6 text-slate-100">

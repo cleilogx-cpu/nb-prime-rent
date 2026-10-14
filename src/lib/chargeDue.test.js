@@ -4,6 +4,8 @@ import {
   PAGE_SIZE,
   addDaysISO,
   buildChargeMessage,
+  daysAgoStartISO,
+  RECENT_CONTRACTS_DAYS,
   daysUntil,
   describeUpcoming,
   pageRange,
@@ -60,4 +62,17 @@ test('paginação: 30 por página', () => {
 test('sanitizeSearchTerm remove caracteres que quebram o filtro', () => {
   assert.equal(sanitizeSearchTerm('  Maria, (Silva)%  '), 'Maria Silva')
   assert.equal(sanitizeSearchTerm(null), '')
+})
+
+test('janela de contratos recentes: últimos 30 dias a partir da meia-noite local', () => {
+  assert.equal(RECENT_CONTRACTS_DAYS, 30)
+  const now = new Date(2026, 9, 14, 22, 30) // 14/10/2026 22:30 local
+  const cutoff = new Date(daysAgoStartISO(30, now))
+  assert.equal(cutoff.getFullYear(), 2026)
+  assert.equal(cutoff.getMonth(), 8) // setembro
+  assert.equal(cutoff.getDate(), 14)
+  assert.equal(cutoff.getHours(), 0)
+  // contrato criado em 15/09 entra; criado em 13/09 não entra
+  assert.ok(new Date(2026, 8, 15, 9, 0) >= cutoff)
+  assert.ok(new Date(2026, 8, 13, 23, 59) < cutoff)
 })

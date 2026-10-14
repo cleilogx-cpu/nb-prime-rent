@@ -106,14 +106,20 @@ export async function listContracts(filters = {}) {
 }
 
 /**
- * Lista paginada (padrão 30 por página, mais recentes primeiro) usada na
+ * Lista paginada (30 por página, mais recentes primeiro) usada na
  * tela de Contratos. Busca e filtro de status são feitos no banco, então
  * alcançam TODO o histórico -- não só a página carregada. A busca por
  * locatário/placa/modelo primeiro acha os ids de locatários e veículos que
  * combinam e depois filtra os contratos por eles (junto com o número).
  */
-export async function listContractsPage({ search = '', status = '', page = 1, pageSize = PAGE_SIZE } = {}) {
+export async function listContractsPage({ search = '', status = '', createdSince = '', page = 1, pageSize = PAGE_SIZE } = {}) {
   let query = supabase.from(TABLE).select(CONTRACT_SELECT, { count: 'exact' })
+
+  // Padrão da tela: só os criados nos últimos 30 dias (createdSince). Busca e
+  // status chegam sem essa janela e alcançam todo o histórico.
+  if (createdSince) {
+    query = query.gte('created_at', createdSince)
+  }
 
   if (status) {
     query = query.eq('status', status)

@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { createPaymentWithDestinationRules, updatePayment } from '../services/paymentsService.js'
 import { CONTRACT_STATUS, PERIODICITY_LABELS, RECEIPT_TYPE } from '../lib/constants.js'
 import { formatCurrency } from '../lib/format.js'
+import { todayLocalISO } from '../lib/chargeDue.js'
 
-const todayIso = () => new Date().toISOString().slice(0, 10)
+const todayIso = () => todayLocalISO()
 
 function buildInitialForm(payment, lockedContext) {
   return {

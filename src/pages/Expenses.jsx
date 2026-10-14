@@ -8,6 +8,7 @@ import {
 } from '../services/expensesService.js'
 import { listVehicles } from '../services/vehiclesService.js'
 import { monthRange, yearRange, MONTH_LABELS } from '../lib/paymentAggregation.js'
+import { todayLocalISO } from '../lib/chargeDue.js'
 
 const CATEGORY_LABELS = {
   maintenance: 'Manutenção',
@@ -37,7 +38,7 @@ export default function Expenses() {
   const [vehicles, setVehicles] = useState([])
   const [form, setForm] = useState({
   vehicle_id: '',
-  expense_date: new Date().toISOString().slice(0, 10),
+  expense_date: todayLocalISO(),
   category: '',
   amount: '',
   description: '',
@@ -112,7 +113,7 @@ export default function Expenses() {
 
   setForm({
     vehicle_id: '',
-    expense_date: new Date().toISOString().slice(0, 10),
+    expense_date: todayLocalISO(),
     category: '',
     amount: '',
     description: '',
@@ -147,7 +148,7 @@ const handleEdit = (expense) => {
 
   setForm({
     vehicle_id: expense.vehicle_id || '',
-    expense_date: expense.expense_date || new Date().toISOString().slice(0, 10),
+    expense_date: expense.expense_date || todayLocalISO(),
     category: expense.category || '',
     amount: expense.amount ?? '',
     description: expense.description || '',

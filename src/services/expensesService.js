@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient.js'
+import { todayLocalISO } from '../lib/chargeDue.js'
 
 const EXPENSES_TABLE = 'expenses'
 
@@ -19,7 +20,7 @@ export async function createExpense(payload) {
   const normalizedPayload = {
     vehicle_id: payload.vehicle_id,
     expense_date:
-      payload.expense_date || new Date().toISOString().slice(0, 10),
+      payload.expense_date || todayLocalISO(),
     category: payload.category || 'other',
     description: payload.description || '',
     amount: Number(payload.amount ?? 0),

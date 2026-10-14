@@ -32,6 +32,7 @@ import TenantFields from './TenantFields.jsx'
 import LeaseTermsStepFields from './LeaseTermsStepFields.jsx'
 import DocumentDossie from './DocumentDossie.jsx'
 import ContractMinutaView from './ContractMinutaView.jsx'
+import { todayLocalISO } from '../lib/chargeDue.js'
 
 const SESSION_KEY = 'contractWizardDraftSessionId'
 
@@ -69,7 +70,7 @@ const initialTenant = {
 
 const initialLease = {
   vehicle_id: '',
-  start_date: new Date().toISOString().slice(0, 10),
+  start_date: todayLocalISO(),
   duration_months: 3,
   end_date: '',
   periodicity: PERIODICITY.WEEKLY,

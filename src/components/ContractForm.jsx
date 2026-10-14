@@ -6,6 +6,7 @@ import { PERIODICITY } from '../lib/constants.js'
 import VehicleStepFields from './VehicleStepFields.jsx'
 import TenantFields from './TenantFields.jsx'
 import LeaseTermsStepFields from './LeaseTermsStepFields.jsx'
+import { todayLocalISO } from '../lib/chargeDue.js'
 
 const initialForm = {
   vehicle_id: '',
@@ -25,7 +26,7 @@ const initialForm = {
     cnh_validity: '',
     birth_date: '',
   },
-  start_date: new Date().toISOString().slice(0, 10),
+  start_date: todayLocalISO(),
   duration_months: 3,
   end_date: '',
   periodicity: PERIODICITY.WEEKLY,
@@ -61,7 +62,7 @@ function formFromContract(contract) {
       cnh_validity: tenant.cnh_validity || '',
       birth_date: tenant.birth_date || '',
     },
-    start_date: contract.start_date || new Date().toISOString().slice(0, 10),
+    start_date: contract.start_date || todayLocalISO(),
     duration_months: 'custom',
     end_date: contract.end_date || '',
     periodicity: contract.periodicity || PERIODICITY.WEEKLY,

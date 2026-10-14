@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { registerRefund } from '../services/depositsService.js'
 import { formatCurrency } from '../lib/format.js'
+import { todayLocalISO } from '../lib/chargeDue.js'
 
-const todayIso = () => new Date().toISOString().slice(0, 10)
+const todayIso = () => todayLocalISO()
 
 export default function DepositRefundDialog({ open, deposit, onClose, onConfirm }) {
   const [refundAmount, setRefundAmount] = useState('')

@@ -3,6 +3,7 @@ import { calculateNextDueDate, calculateNextPartnerBeneficiary } from '../lib/pa
 import { matchPaymentToCharge, unmatchChargeForPayment } from './chargesService.js'
 import { recalculateReceivedAmount } from './depositsService.js'
 import { RECEIPT_TYPE } from '../lib/constants.js'
+import { todayLocalISO } from '../lib/chargeDue.js'
 
 const PAYMENT_TABLE = 'rental_payments'
 const AUDIT_TABLE = 'audit_logs'
@@ -60,7 +61,7 @@ function normalizePaymentPayload(payload) {
     tenant_id: payload.tenant_id || null,
     contract_id: payload.contract_id || null,
     payment_date:
-      payload.payment_date || new Date().toISOString().slice(0, 10),
+      payload.payment_date || todayLocalISO(),
 
     amount:
       payload.amount === '' ||

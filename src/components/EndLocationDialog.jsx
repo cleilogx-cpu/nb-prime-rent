@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { todayLocalISO } from '../lib/chargeDue.js'
 
-const todayIso = () => new Date().toISOString().slice(0, 10)
+const todayIso = () => todayLocalISO()
 
 export default function EndLocationDialog({ open, location, onClose, onConfirm, loading }) {
   const [actualEndDate, setActualEndDate] = useState(todayIso())

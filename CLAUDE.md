@@ -173,3 +173,9 @@ de investigar a fundo ou implementar qualquer coisa "do zero".
 - `document_status` (Rascunho, Minuta gerada, Minuta validada, Contrato gerado, Aguardando assinatura, Contrato assinado) é separado de `status` (operacional).
 - Seed específico da NB Prime (responsável Edson + modelo v1) em `supabase/seeds/nb_prime_initial_setup.json` — é dado, carregado uma vez no banco.
 - Rodar SQL no editor do Supabase: digitar texto longo é lento/trava a aba; usar `window.monaco.editor.getModels()[0].setValue(...)` via javascript_tool e depois ctrl+Enter.
+
+## Cauções (19/10/2026)
+
+- A caução (`contract_deposits`) é criada SÓ na ativação (`contractsService.signContract`, ao anexar o contrato assinado) — nunca em rascunho/aguardando assinatura/cancelado. `createOrSyncDepositForContract` reaproveita uma já existente (contract_id UNIQUE), só acerta o valor.
+- Tela Cauções abre em "Locações ativas" (`src/lib/depositView.js`: contrato com status Ativo); demais status/"Todas" consultam o histórico. Cauções antigas de contratos não assinados continuam no banco (visíveis em "Todas"/por status).
+- Encerrar locação -> `markDepositPendingRefund` marca "A devolver" só se sobrou saldo recebido; a devolução usa o fluxo existente (`registerRefund`).

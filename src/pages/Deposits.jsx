@@ -2,13 +2,17 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Search } from 'lucide-react'
 import { listDeposits } from '../services/depositsService.js'
 import { DEPOSIT_STATUS } from '../lib/constants.js'
+import { ACTIVE_VIEW, countDepositsToRefund, filterDeposits } from '../lib/depositView.js'
 import DepositCard from '../components/DepositCard.jsx'
 import DepositRefundDialog from '../components/DepositRefundDialog.jsx'
 import DepositTermsDialog from '../components/DepositTermsDialog.jsx'
 import Toast from '../components/Toast.jsx'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 
+// Padrão: cauções das locações ativas (veículos alugados). Os demais itens
+// consultam por status, inclusive os históricos -- nada é apagado.
 const STATUS_FILTER_OPTIONS = [
+  { value: ACTIVE_VIEW, label: 'Locações ativas' },
   { value: DEPOSIT_STATUS.A_DEVOLVER, label: 'A devolver' },
   { value: DEPOSIT_STATUS.PENDENTE, label: 'Pendente' },
   { value: DEPOSIT_STATUS.PARCIAL, label: 'Parcial' },
@@ -25,7 +29,7 @@ export default function Deposits() {
   const [showRefundDialog, setShowRefundDialog] = useState(false)
   const [showTermsDialog, setShowTermsDialog] = useState(false)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState(DEPOSIT_STATUS.A_DEVOLVER)
+  const [statusFilter, setStatusFilter] = useState(ACTIVE_VIEW)
 
   const loadData = async () => {
     setLoading(true)
@@ -67,18 +71,11 @@ export default function Deposits() {
     await loadData()
   }
 
-  const filteredDeposits = useMemo(() => {
-    return deposits.filter((deposit) => {
-      const matchesStatus = !statusFilter || deposit.status === statusFilter
-      const haystack = [
-        deposit.vehicles?.plate,
-        deposit.tenants?.full_name,
-        deposit.contracts?.contract_number,
-      ].join(' ').toLowerCase()
-      const matchesSearch = !search || haystack.includes(search.toLowerCase())
-      return matchesStatus && matchesSearch
-    })
-  }, [deposits, search, statusFilter])
+  const filteredDeposits = useMemo(
+    () => filterDeposits(deposits, { view: statusFilter, search }),
+    [deposits, search, statusFilter],
+  )
+  const toRefundCount = useMemo(() => countDepositsToRefund(deposits), [deposits])
 
   if (loading) {
     return <LoadingScreen />
@@ -93,8 +90,9 @@ export default function Deposits() {
           <p className="text-sm uppercase tracking-[0.35em] text-amber-300/80">Cauções</p>
           <h2 className="mt-3 text-3xl font-semibold text-white">Controle e acompanhamento das garantias</h2>
           <p className="mt-2 text-sm text-slate-400">
-            Uma caução é criada automaticamente pra cada contrato. O valor recebido vem dos lançamentos tipo Caução em
-            Recebimentos — este módulo não duplica movimentação financeira, só acompanha.
+            A caução é criada automaticamente quando o contrato assinado é registrado e a locação é ativada. O valor
+            recebido vem dos lançamentos tipo Caução em Recebimentos — este módulo não duplica movimentação
+            financeira, só acompanha.
           </p>
         </div>
       </div>
@@ -129,6 +127,21 @@ export default function Deposits() {
         </div>
       </div>
 
+      {toRefundCount > 0 && statusFilter !== DEPOSIT_STATUS.A_DEVOLVER ? (
+        <div className="flex flex-col gap-3 rounded-[28px] border border-sky-400/20 bg-sky-500/10 p-4 text-sm text-sky-100 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            {toRefundCount === 1 ? '1 caução' : `${toRefundCount} cauções`} de locações encerradas aguardando devolução.
+          </p>
+          <button
+            type="button"
+            onClick={() => setStatusFilter(DEPOSIT_STATUS.A_DEVOLVER)}
+            className="min-h-11 rounded-2xl border border-sky-400/30 bg-sky-500/15 px-4 py-2 font-semibold text-sky-100"
+          >
+            Ver cauções a devolver
+          </button>
+        </div>
+      ) : null}
+
       {filteredDeposits.length === 0 ? (
         <div className="rounded-[28px] border border-white/10 bg-slate-900/70 p-8 text-center shadow-lg shadow-black/20">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-300/10 text-amber-300">
@@ -137,8 +150,8 @@ export default function Deposits() {
           <h3 className="mt-4 text-xl font-semibold text-white">Nenhuma caução encontrada</h3>
           <p className="mt-2 text-sm text-slate-400">
             {deposits.length === 0
-              ? 'Cauções são criadas automaticamente ao gerar um contrato.'
-              : 'Ajuste os filtros pra ver outras cauções.'}
+              ? 'Cauções são criadas automaticamente quando um contrato assinado é registrado e a locação é ativada.'
+              : 'Ajuste a busca ou o filtro de status pra ver outras cauções.'}
           </p>
         </div>
       ) : (

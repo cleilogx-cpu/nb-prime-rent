@@ -12,8 +12,10 @@ function computeStatusFromBalance(receivedAmount, totalAmount) {
 }
 
 /**
- * Cria a caução na criação do contrato, ou sincroniza o valor total numa
- * edição enquanto o contrato ainda é Rascunho. `contract_id` é UNIQUE --
+ * Cria a caução quando o contrato assinado é registrado e a locação é
+ * ativada (contractsService.signContract) -- nunca em rascunho. Se já
+ * existir uma (rascunhos antigos, de antes desta regra), só acerta o valor
+ * total pelo contrato. `contract_id` é UNIQUE --
  * nunca cria uma segunda caução pro mesmo contrato -- e `received_amount`
  * nunca é sobrescrito aqui, só por recalculateReceivedAmount (a partir de
  * Recebimentos, a única fonte real de dinheiro que entrou).
@@ -128,7 +130,9 @@ export async function markDepositPendingRefund(contractId) {
     return { data: null, error: findError }
   }
 
-  if (Number(deposit.received_amount || 0) <= 0) {
+  // Só vira 'A devolver' se sobrou saldo recebido ainda não devolvido --
+  // sem caução recebida (ou já totalmente devolvida) não há o que devolver.
+  if (Number(deposit.received_amount || 0) - Number(deposit.refund_amount || 0) <= 0) {
     return { data: deposit, error: null }
   }
 

@@ -223,15 +223,9 @@ export async function createContract(payload) {
     .select(CONTRACT_SELECT)
     .single()
 
-  if (!error && data) {
-    // Cria a caução automaticamente junto com o contrato (seção 8 do
-    // pedido) -- contract_id é UNIQUE, então isso nunca duplica.
-    const { error: depositError } = await createOrSyncDepositForContract(data)
-    if (depositError) {
-      console.warn('Falha ao criar a caução do contrato:', depositError.message)
-    }
-  }
-
+  // A caução NÃO nasce mais aqui: contrato em rascunho/aguardando assinatura
+  // não tem caução. Ela é criada só quando o contrato assinado é registrado
+  // e a locação é ativada (signContract).
   return { data, error }
 }
 
@@ -270,15 +264,9 @@ export async function updateContract(id, payload) {
     .select(CONTRACT_SELECT)
     .single()
 
-  if (!error && data) {
-    // Só sincroniza o valor total -- nunca cria uma segunda caução nem
-    // mexe no que já foi recebido (seção 8: editar o contrato não duplica).
-    const { error: depositError } = await createOrSyncDepositForContract(data)
-    if (depositError) {
-      console.warn('Falha ao sincronizar a caução do contrato:', depositError.message)
-    }
-  }
-
+  // Editar o rascunho não cria nem altera caução (ela só existe depois da
+  // assinatura/ativação; rascunhos antigos que já tinham uma recebem o valor
+  // certo do contrato na ativação).
   return { data, error }
 }
 
@@ -448,6 +436,15 @@ export async function signContract(id, { signed_document_url } = {}) {
 
   if (updateError) {
     return { data: null, error: updateError }
+  }
+
+  // Caução nasce AQUI, junto com a locação ativa. O valor vem do contrato.
+  // contract_id é UNIQUE e createOrSyncDepositForContract reaproveita uma
+  // caução que já exista (rascunhos antigos) só acertando o valor total --
+  // nunca duplica e nunca mexe no valor já recebido.
+  const { error: depositError } = await createOrSyncDepositForContract(contract)
+  if (depositError) {
+    console.warn('Falha ao criar a caução do contrato:', depositError.message)
   }
 
   await setVehicleStatus(contract.vehicle_id, VEHICLE_STATUS.ALUGADO)
